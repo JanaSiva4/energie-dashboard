@@ -219,15 +219,25 @@ input:focus { border-color: var(--el); }
       <!-- TRENDY -->
       <div class="trend-card">
         <div class="trend-header">
-          <div class="trend-title">📈 Trendy — roční srovnání nákladů</div>
+          <div class="trend-title">📈 Trendy — meziroční změna (%)</div>
         </div>
-        <div class="trend-sub">Celkové náklady za rok podle kategorie (Kč)</div>
+        <div class="trend-sub">Procentuální změna nákladů a spotřeby mezi roky</div>
         <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
       </div>
     </div>
 
     <div id="tab-charts" style="display:none">
       <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Elektřina — spotřeba</div>
+          <div class="chart-sub">kWh / měsíc (Innogy + FSX)</div>
+          <div class="chart-wrap"><canvas id="chartElKwh2"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Elektřina — náklady</div>
+          <div class="chart-sub">Kč / měsíc (Innogy + FSX)</div>
+          <div class="chart-wrap"><canvas id="chartElCzk2"></canvas></div>
+        </div>
         <div class="chart-card">
           <div class="chart-title">Plyn — spotřeba</div>
           <div class="chart-sub">kWh / měsíc</div>
@@ -404,14 +414,70 @@ function renderSummaryCards() {
 function renderTrend() {
   if (!allData.length) return;
   const years = [...new Set(allData.map(d => d.rok))].sort();
-  const sumByYear = (field) => years.map(y => allData.filter(d => d.rok === y).reduce((s, d) => s + d[field], 0));
+  if (years.length < 2) return;
+  const sum = (field, yr) => allData.filter(d => d.rok === yr).reduce((s, d) => s + d[field], 0);
+  const pct = (a, b) => b === 0 ? 0 : +((( a - b) / b) * 100).toFixed(1);
 
-  mkChart('chartTrend', years.map(String), [
-    { label: '⚡ Elektřina', data: sumByYear('el_celkem'), color: '#2563eb' },
-    { label: '🏢 FSX', data: sumByYear('fsx_celkem'), color: '#0891b2' },
-    { label: '🔥 Plyn', data: sumByYear('gas_celkem'), color: '#d97706' },
-    { label: '💧 Voda', data: sumByYear('water_celkem'), color: '#059669' },
-  ], 'bar', true);
+  // Build labels = pairs of years: "2024→2025"
+  const labels = [];
+  for (let i = 1; i < years.length; i++) labels.push(years[i-1] + ' → ' + years[i]);
+
+  const fields = [
+    { key: 'el_celkem', label: '⚡ Náklady elektřina', color: '#2563eb' },
+    { key: 'fsx_celkem', label: '🏢 Náklady FSX', color: '#0891b2' },
+    { key: 'gas_celkem', label: '🔥 Náklady plyn', color: '#d97706' },
+    { key: 'water_celkem', label: '💧 Náklady voda', color: '#059669' },
+    { key: 'el_kwh', label: '⚡ Spotřeba elektřina', color: '#2563ebaa' },
+    { key: 'gas_kwh', label: '🔥 Spotřeba plyn', color: '#d97706aa' },
+    { key: 'water_m3', label: '💧 Spotřeba voda', color: '#059669aa' },
+  ];
+
+  if (charts['chartTrend']) charts['chartTrend'].destroy();
+  const ctx = document.getElementById('chartTrend');
+  if (!ctx) return;
+
+  charts['chartTrend'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: fields.map(f => ({
+        label: f.label,
+        data: labels.map((_, i) => pct(sum(f.key, years[i+1]), sum(f.key, years[i]))),
+        borderColor: f.color,
+        backgroundColor: f.color + '22',
+        borderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        tension: 0.3,
+        fill: false,
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { font: { family: 'Epilogue', size: 10 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              return ' ' + ctx.dataset.label + ': ' + (v > 0 ? '+' : '') + v + ' %';
+            }
+          }
+        },
+        datalabels: false,
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
+        y: {
+          grid: { color: '#e0dbd3' },
+          ticks: {
+            font: { family: 'Epilogue', size: 10 },
+            callback: v => (v > 0 ? '+' : '') + v + ' %'
+          }
+        }
+      }
+    }
+  });
 }
 
 function renderCharts() {
@@ -426,6 +492,14 @@ function renderCharts() {
     { label: 'FSX', data: allData.map(d=>d.fsx_celkem), color: '#0891b2' },
     { label: 'Plyn', data: allData.map(d=>d.gas_celkem), color: '#d97706' },
     { label: 'Voda', data: allData.map(d=>d.water_celkem), color: '#059669' }
+  ]);
+  mkChart('chartElKwh2', labels, [
+    { label: 'Innogy kWh', data: allData.map(d=>d.el_kwh), color: '#2563eb' },
+    { label: 'FSX kWh', data: allData.map(d=>d.fsx_kwh), color: '#0891b2' }
+  ]);
+  mkChart('chartElCzk2', labels, [
+    { label: 'Innogy Kč', data: allData.map(d=>d.el_celkem), color: '#2563eb' },
+    { label: 'FSX Kč', data: allData.map(d=>d.fsx_celkem), color: '#0891b2' }
   ]);
   mkChart('chartGasM3', labels, [{ label: 'kWh', data: allData.map(d=>d.gas_kwh), color: '#d97706' }]);
   mkChart('chartWaterM3', labels, [{ label: 'm³', data: allData.map(d=>d.water_m3), color: '#059669' }]);
