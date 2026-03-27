@@ -616,7 +616,7 @@ async function saveData() {
         body: JSON.stringify({ values: [row] })
       });
     } else {
-      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/${SHEET_NAME}!A:Q:append?valueInputOption=USER_ENTERED`, {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}/values/Data!A1:append?valueInputOption=USER_ENTERED`, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: [row] })
