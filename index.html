@@ -372,7 +372,7 @@ function renderSummaryCards() {
   document.getElementById('sum-el-czk').textContent = fmtCzk(last.el_celkem) + ' · ' + label;
   document.getElementById('sum-fsx-kwh').textContent = fmt(last.fsx_kwh) + ' kWh';
   document.getElementById('sum-fsx-czk').textContent = fmtCzk(last.fsx_celkem) + ' · ' + label;
-  document.getElementById('sum-gas-m3').textContent = fmt(last.gas_m3) + ' m³';
+  document.getElementById('sum-gas-m3').textContent = fmt(last.gas_kwh) + ' kWh';
   document.getElementById('sum-gas-czk').textContent = fmtCzk(last.gas_celkem) + ' · ' + label;
   document.getElementById('sum-water-m3').textContent = fmt(last.water_m3) + ' m³';
   document.getElementById('sum-water-czk').textContent = fmtCzk(last.water_celkem) + ' · ' + label;
