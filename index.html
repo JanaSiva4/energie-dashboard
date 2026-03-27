@@ -221,7 +221,7 @@ input:focus { border-color: var(--el); }
         <div class="trend-header">
           <div class="trend-title">📈 Trendy — meziroční změna (%)</div>
         </div>
-        <div class="trend-sub">Celkové náklady po měsících — každý rok jedna křivka (Kč)</div>
+        <div class="trend-sub">Plná čára = náklady celkem (Kč) · Přerušovaná = spotřeba elektřiny (kWh) · každý rok jiná barva</div>
         <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
       </div>
     </div>
@@ -427,66 +427,86 @@ function renderTrend() {
   const years = [...new Set(allData.map(d => d.rok))].sort();
   if (years.length < 2) return;
 
-  // X axis = months, one line per year, showing total costs
   const yearColors = ['#2563eb', '#d97706', '#059669', '#9333ea'];
+  const yearDash = [[], [6,3], [2,4], [8,3]];
 
   if (charts['chartTrend']) charts['chartTrend'].destroy();
   const ctx = document.getElementById('chartTrend');
   if (!ctx) return;
 
-  const energyLines = [
-    { key: 'el_celkem', label: '⚡ Elektřina', color: '#2563eb', dash: [] },
-    { key: 'fsx_celkem', label: '🏢 FSX', color: '#0891b2', dash: [5,3] },
-    { key: 'gas_celkem', label: '🔥 Plyn', color: '#d97706', dash: [] },
-    { key: 'water_celkem', label: '💧 Voda', color: '#059669', dash: [5,3] },
-  ];
-  const yearStyles = [
-    { width: 2.5, opacity: 'ff' },
-    { width: 2, opacity: 'bb' },
-    { width: 1.5, opacity: '88' },
-  ];
-
   charts['chartTrend'] = new Chart(ctx, {
     type: 'line',
     data: {
       labels: MONTHS,
-      datasets: energyLines.map(e => years.map((yr, yi) => {
-        const style = yearStyles[yi % yearStyles.length];
-        const data = MONTHS.map((_, mi) => {
-          const row = allData.find(d => d.rok === yr && d.mesic === mi + 1);
-          return row ? row[e.key] : null;
-        });
-        return {
-          label: e.label + ' ' + yr,
-          data,
-          borderColor: e.color,
+      datasets: [
+        // Náklady celkem — každý rok jedna křivka (levá osa)
+        ...years.map((yr, yi) => ({
+          label: '💰 Náklady ' + yr,
+          data: MONTHS.map((_, mi) => {
+            const row = allData.find(d => d.rok === yr && d.mesic === mi + 1);
+            return row ? row.el_celkem + row.fsx_celkem + row.gas_celkem + row.water_celkem : null;
+          }),
+          borderColor: yearColors[yi % yearColors.length],
           backgroundColor: 'transparent',
-          borderWidth: style.width,
-          borderDash: yi > 0 ? [6, 3] : [],
+          borderWidth: 2.5,
+          borderDash: yearDash[yi % yearDash.length],
           pointRadius: 3,
-          pointHoverRadius: 5,
+          pointHoverRadius: 6,
           tension: 0.4,
           fill: false,
+          yAxisID: 'yLeft',
           spanGaps: false,
-        };
-      })).flat()
+        })),
+        // Spotřeba elektřina celkem — každý rok jedna křivka (pravá osa)
+        ...years.map((yr, yi) => ({
+          label: '⚡ Spotřeba el. ' + yr,
+          data: MONTHS.map((_, mi) => {
+            const row = allData.find(d => d.rok === yr && d.mesic === mi + 1);
+            return row ? row.el_kwh + row.fsx_kwh : null;
+          }),
+          borderColor: yearColors[yi % yearColors.length],
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderDash: [3, 3],
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          tension: 0.4,
+          fill: false,
+          yAxisID: 'yRight',
+          spanGaps: false,
+        })),
+      ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { display: true, labels: { font: { family: 'Epilogue', size: 11 }, boxWidth: 12 } },
+        legend: { display: true, labels: { font: { family: 'Epilogue', size: 10 }, boxWidth: 12 } },
         tooltip: {
           callbacks: {
-            label: ctx => ' ' + ctx.dataset.label + ': ' + fmtCzk(ctx.parsed.y)
+            label: ctx => {
+              const v = ctx.parsed.y;
+              if (!v) return null;
+              return ctx.dataset.yAxisID === 'yLeft'
+                ? ' ' + ctx.dataset.label + ': ' + fmtCzk(v)
+                : ' ' + ctx.dataset.label + ': ' + fmt(v) + ' kWh';
+            }
           }
         }
       },
       scales: {
         x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
-        y: {
+        yLeft: {
+          type: 'linear', position: 'left',
           grid: { color: '#e0dbd3' },
-          ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmtCzk(v) }
+          ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmtCzk(v) },
+          title: { display: true, text: 'Náklady (Kč)', font: { size: 10 }, color: '#9a9088' }
+        },
+        yRight: {
+          type: 'linear', position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmt(v) + ' kWh' },
+          title: { display: true, text: 'Spotřeba el. (kWh)', font: { size: 10 }, color: '#9a9088' }
         }
       }
     }
