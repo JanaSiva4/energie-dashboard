@@ -467,22 +467,36 @@ function zobrazOteCenu(cena, zdroj) {
   document.getElementById('oteCenaKwh').textContent = (cena/1000).toFixed(3).replace('.', ',');
   document.getElementById('oteStatus').textContent = zdroj + ' — ' + new Date().toLocaleDateString('cs-CZ');
   document.getElementById('oteDot').classList.remove('loading');
+  zkontrolujAlert(cena);
   vypocitej();
 }
 
+const SJL_KOEFICIENT = 0.069; // kWh na 1 SJL (průměr říjen 2025 - leden 2026)
+const ALERT_HRANICE = 2500; // Kč/MWh
+
 function vypocitej() {
-  const kwh = parseFloat(document.getElementById('calcKwh').value) || 0;
+  const sjl = parseFloat(document.getElementById('calcSjl').value) || 0;
   const vlastniCena = parseFloat(document.getElementById('calcCena').value) || 0;
-  if (!kwh) { document.getElementById('calcResult').style.display = 'none'; return; }
+  if (!sjl) { document.getElementById('calcResult').style.display = 'none'; return; }
   
+  const odhadKwh = sjl * SJL_KOEFICIENT;
   const pouzitaCena = vlastniCena > 0 ? vlastniCena : (otePrice ? otePrice/1000 : 1.65);
-  const celkem = kwh * pouzitaCena;
+  const celkem = odhadKwh * pouzitaCena;
   
   document.getElementById('calcResult').style.display = 'block';
   document.getElementById('calcResultValue').textContent = fmtCzk(celkem);
-  document.getElementById('calcResultLabel').textContent = 'Odhadovaná cena za elektřinu (bez distribuce a daní)';
+  document.getElementById('calcResultLabel').textContent = 'Odhadovaná cena za silovou elektřinu';
   document.getElementById('calcResultDetail').textContent = 
-    `${fmt(kwh)} kWh × ${pouzitaCena.toFixed(3).replace('.',',')} Kč/kWh = ${fmtCzk(celkem)} · Cena zahrnuje pouze silovou elektřinu`;
+    `${fmt(sjl)} SJL × ${SJL_KOEFICIENT} kWh/SJL = ${fmt(odhadKwh)} kWh × ${pouzitaCena.toFixed(3).replace('.',',')} Kč/kWh = ${fmtCzk(celkem)}`;
+}
+
+function zkontrolujAlert(cena) {
+  const alert = document.getElementById('cenovyAlert');
+  if (cena && cena > ALERT_HRANICE) {
+    alert.style.display = 'flex';
+  } else {
+    alert.style.display = 'none';
+  }
 }
 
 function renderPredikce() {
