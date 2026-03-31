@@ -293,7 +293,16 @@ input:focus { border-color: var(--el); }
 
     <!-- PREDIKCE -->
     <div id="tab-prediction" style="display:none">
-      
+
+      <!-- ALERT -->
+      <div id="cenovyAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px 20px;margin-bottom:20px;align-items:center;gap:12px">
+        <div style="font-size:1.5rem">🚨</div>
+        <div>
+          <div style="font-weight:600;color:#dc2626;font-size:0.95rem">Vysoká cena elektřiny na trhu!</div>
+          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální OTE cena překročila hranici 2 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
+        </div>
+      </div>
+
       <!-- Aktuální cena OTE -->
       <div class="pred-section">
         <div class="pred-title">⚡ Aktuální cena elektřiny na trhu</div>
@@ -308,17 +317,22 @@ input:focus { border-color: var(--el); }
             <div class="price-badge-value" id="oteCenaKwh">—</div>
             <div class="price-badge-label">Kč / kWh</div>
           </div>
+          <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
+            <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">Alert hranice</div>
+            <div style="font-size:0.95rem;font-weight:600;color:var(--text)">2 500 Kč/MWh</div>
+            <div style="font-size:0.72rem;color:var(--muted)">Nad touto hranicí = upozornění</div>
+          </div>
         </div>
       </div>
 
-      <!-- Kalkulačka -->
+      <!-- SJL Kalkulačka -->
       <div class="pred-section">
-        <div class="pred-title">🔢 Kalkulačka nákladů</div>
-        <div class="pred-sub">Zadejte spotřebu a získejte odhad nákladů při aktuální tržní ceně</div>
+        <div class="pred-title">🔢 Kalkulačka nákladů podle SJL</div>
+        <div class="pred-sub">Zadejte počet SJL (Store Job Lines) a získejte odhad spotřeby a nákladů při aktuální tržní ceně. Koeficient: 0,069 kWh/SJL (průměr 2025–2026, 13 měsíců)</div>
         <div class="form-grid">
           <div class="field">
-            <label>Spotřeba elektřiny (kWh)</label>
-            <input type="number" id="calcKwh" placeholder="např. 357845" oninput="vypocitej()" />
+            <label>Počet SJL</label>
+            <input type="number" id="calcSjl" placeholder="např. 5 267 585" oninput="vypocitej()" />
           </div>
           <div class="field">
             <label>Vlastní cena Kč/kWh (volitelné)</label>
@@ -327,7 +341,7 @@ input:focus { border-color: var(--el); }
         </div>
         <div class="calc-result" id="calcResult">
           <div class="calc-result-value" id="calcResultValue">—</div>
-          <div class="calc-result-label" id="calcResultLabel">Odhadovaná cena za elektřinu</div>
+          <div class="calc-result-label" id="calcResultLabel">Odhadovaná cena za silovou elektřinu</div>
           <div style="font-size:0.75rem;color:var(--muted);margin-top:8px" id="calcResultDetail"></div>
         </div>
       </div>
