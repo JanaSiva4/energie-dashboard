@@ -523,6 +523,17 @@ function zkontrolujAlert(cena) {
 }
 
 function renderPredikce() {
+  // Automaticky předvyplň SJL z posledního měsíce
+  if (allData.length > 0) {
+    const last = allData[allData.length - 1];
+    if (last.sjl && last.sjl > 0) {
+      const sjlInput = document.getElementById('calcSjl');
+      if (sjlInput && !sjlInput.value) {
+        sjlInput.value = last.sjl;
+        vypocitej();
+      }
+    }
+  }
   if (allData.length < 3) {
     document.getElementById('predGrid').innerHTML = '<div class="empty-state" style="padding:20px;grid-column:1/-1"><div class="empty-icon">📊</div><div>Pro predikci potřebujete alespoň 3 měsíce historických dat.</div></div>';
     return;
@@ -621,6 +632,7 @@ async function loadData() {
         fsx_kwh: +row[7]||0, fsx_avg_price: +row[8]||0, fsx_celkem: +row[9]||0,
         gas_kwh: +row[10]||0, gas_avg_price: +row[11]||0, gas_celkem: +row[12]||0,
         water_m3: +row[13]||0, water_avg_price: +row[14]||0, water_celkem: +row[15]||0,
+        sjl: +row[17]||0,
       })).sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
     }
     hideLoading();
@@ -744,8 +756,9 @@ function renderTable() {
       <td>${fmt(d.gas_kwh)} kWh<br><small style="color:var(--muted)">${fmtCzk(d.gas_celkem)}</small></td>
       <td>${fmt(d.water_m3)} m³<br><small style="color:var(--muted)">${fmtCzk(d.water_celkem)}</small></td>
       <td style="font-weight:500">${fmtCzk(d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem)}</td>
+      <td>${d.sjl ? fmt(d.sjl) : '—'}</td>
     </tr>`).join('');
-  container.innerHTML = `<table><thead><tr><th>Měsíc</th><th>⚡ Elektřina</th><th>🏢 FSX</th><th>🔥 Plyn</th><th>💧 Voda</th><th>Celkem</th></tr></thead><tbody>${rows}</tbody></table>`;
+  container.innerHTML = `<table><thead><tr><th>Měsíc</th><th>⚡ Elektřina</th><th>🏢 FSX</th><th>🔥 Plyn</th><th>💧 Voda</th><th>Celkem</th><th>📦 SJL</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function fmt(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:1}) : '0'; }
