@@ -232,14 +232,9 @@ input:focus { border-color: var(--el); }
         </div>
       </div>
       <div class="trend-card">
-        <div class="trend-header"><div class="trend-title">📈 Trendy — energetický benchmarking </div></div>
+        <div class="trend-header"><div class="trend-title">📈 Trendy — meziroční změna (%)</div></div>
         <div class="trend-sub">Plná čára = náklady celkem (Kč) · Přerušovaná = spotřeba elektřiny (kWh)</div>
         <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
-      </div>
-      <div class="trend-card">
-        <div class="trend-header"><div class="trend-title">💰 Průměrná cena elektřiny (Kč/kWh)</div></div>
-        <div class="trend-sub">Vývoj průměrné jednotkové ceny silové elektřiny v čase</div>
-        <div class="chart-wrap"><canvas id="chartAvgPrice"></canvas></div>
       </div>
     </div>
 
@@ -298,6 +293,8 @@ input:focus { border-color: var(--el); }
 
     <!-- PREDIKCE -->
     <div id="tab-prediction" style="display:none">
+
+      <!-- ALERT -->
       <div id="cenovyAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px 20px;margin-bottom:20px;align-items:center;gap:12px">
         <div style="font-size:1.5rem">🚨</div>
         <div>
@@ -305,6 +302,8 @@ input:focus { border-color: var(--el); }
           <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální OTE cena překročila hranici 2 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
         </div>
       </div>
+
+      <!-- Aktuální cena OTE -->
       <div class="pred-section">
         <div class="pred-title">⚡ Aktuální cena elektřiny na trhu</div>
         <div class="pred-sub">Denní spot cena z OTE-CR.cz — Operátor trhu s elektřinou</div>
@@ -325,6 +324,8 @@ input:focus { border-color: var(--el); }
           </div>
         </div>
       </div>
+
+      <!-- SJL Kalkulačka -->
       <div class="pred-section">
         <div class="pred-title">🔢 Kalkulačka nákladů podle SJL</div>
         <div class="pred-sub">Zadejte počet SJL (Store Job Lines) a získejte odhad spotřeby a nákladů při aktuální tržní ceně. Koeficient: 0,069 kWh/SJL (průměr 2025–2026, 13 měsíců)</div>
@@ -344,6 +345,8 @@ input:focus { border-color: var(--el); }
           <div style="font-size:0.75rem;color:var(--muted);margin-top:8px" id="calcResultDetail"></div>
         </div>
       </div>
+
+      <!-- Predikce 2027 -->
       <div class="pred-section">
         <div class="pred-title">📅 Predikce roku 2027</div>
         <div class="pred-sub">Odhad na základě historických dat a průměrného růstu. Čím více měsíců máte v historii, tím přesnější predikce.</div>
@@ -356,6 +359,7 @@ input:focus { border-color: var(--el); }
           <div class="chart-wrap-tall"><canvas id="chartPredikce"></canvas></div>
         </div>
       </div>
+
     </div>
 
     <!-- ZADÁNÍ DAT -->
@@ -442,6 +446,32 @@ function backToWarehouse() {
 }
 
 async function loadOtePrice() {
+  // 1. Zkus Sourceful Energy API (ENTSO-E data, zdarma, bez registrace)
+  try {
+    const res = await fetch('https://api.sourceful.energy/price/electricity/CZ');
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.current_price) {
+        const kczMwh = Math.round(data.current_price * 25);
+        otePrice = kczMwh;
+        zobrazOteCenu(otePrice, 'Sourceful Energy (ENTSO-E)');
+        return;
+      }
+      // Zkus jiné formáty odpovědi
+      if (data && data.prices && data.prices.length > 0) {
+        const now = new Date().getHours();
+        const aktualni = data.prices[now] || data.prices[0];
+        const kczMwh = Math.round(aktualni * 25);
+        otePrice = kczMwh;
+        zobrazOteCenu(otePrice, 'Sourceful Energy (ENTSO-E)');
+        return;
+      }
+    }
+  } catch(e) {
+    console.log('Sourceful chyba:', e.message);
+  }
+
+  // 2. Zkus Energy-Charts API (Fraunhofer ISE)
   try {
     const today = new Date();
     const dateStr = today.toISOString().split('T')[0];
@@ -460,6 +490,8 @@ async function loadOtePrice() {
   } catch(e) {
     console.log('Energy-Charts chyba:', e.message);
   }
+
+  // 3. Zkus Apps Script
   try {
     const res = await fetch(SCRIPT_URL + '?action=ote');
     const d = await res.json();
@@ -469,6 +501,8 @@ async function loadOtePrice() {
       return;
     }
   } catch(e) {}
+  
+  // 4. Poslední fallback
   otePrice = 1650;
   zobrazOteCenu(otePrice, 'Odhadovaná průměrná cena');
 }
@@ -482,20 +516,22 @@ function zobrazOteCenu(cena, zdroj) {
   vypocitej();
 }
 
-const SJL_KOEFICIENT = 0.069;
-const ALERT_HRANICE = 2500;
+const SJL_KOEFICIENT = 0.069; // kWh na 1 SJL (průměr říjen 2025 - leden 2026)
+const ALERT_HRANICE = 2500; // Kč/MWh
 
 function vypocitej() {
   const sjl = parseFloat(document.getElementById('calcSjl').value) || 0;
   const vlastniCena = parseFloat(document.getElementById('calcCena').value) || 0;
   if (!sjl) { document.getElementById('calcResult').style.display = 'none'; return; }
+  
   const odhadKwh = sjl * SJL_KOEFICIENT;
   const pouzitaCena = vlastniCena > 0 ? vlastniCena : (otePrice ? otePrice/1000 : 1.65);
   const celkem = odhadKwh * pouzitaCena;
+  
   document.getElementById('calcResult').style.display = 'block';
   document.getElementById('calcResultValue').textContent = fmtCzk(celkem);
   document.getElementById('calcResultLabel').textContent = 'Odhadovaná cena za silovou elektřinu';
-  document.getElementById('calcResultDetail').textContent =
+  document.getElementById('calcResultDetail').textContent = 
     `${fmt(sjl)} SJL × ${SJL_KOEFICIENT} kWh/SJL = ${fmt(odhadKwh)} kWh × ${pouzitaCena.toFixed(3).replace('.',',')} Kč/kWh = ${fmtCzk(celkem)}`;
 }
 
@@ -513,18 +549,27 @@ function renderPredikce() {
     document.getElementById('predGrid').innerHTML = '<div class="empty-state" style="padding:20px;grid-column:1/-1"><div class="empty-icon">📊</div><div>Pro predikci potřebujete alespoň 3 měsíce historických dat.</div></div>';
     return;
   }
+
+  // Vezmi data 2026
   const data2026 = allData.filter(d => d.rok === 2026);
+  
+  // Vypočti průměrný měsíční nárůst z dostupných dat
   const vsechnaData = [...allData].sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
+  
+  // Průměrné hodnoty za měsíc
   const avgEl = vsechnaData.reduce((s,d) => s + d.el_celkem, 0) / vsechnaData.length;
   const avgFsx = vsechnaData.reduce((s,d) => s + d.fsx_celkem, 0) / vsechnaData.length;
   const avgGas = vsechnaData.reduce((s,d) => s + d.gas_celkem, 0) / vsechnaData.length;
   const avgWater = vsechnaData.reduce((s,d) => s + d.water_celkem, 0) / vsechnaData.length;
   const avgTotal = avgEl + avgFsx + avgGas + avgWater;
-  const rust = 1.05;
+
+  // Roční odhad 2027
+  const rust = 1.05; // předpokládaný 5% meziroční nárůst
   const predRocniEl = avgEl * 12 * rust;
   const predRocniGas = avgGas * 12 * rust;
   const predRocniWater = avgWater * 12 * rust;
   const predRocniTotal = (avgEl + avgFsx + avgGas + avgWater) * 12 * rust;
+
   document.getElementById('predGrid').innerHTML = `
     <div class="pred-month-card">
       <div class="pred-month-label">⚡ Elektřina + FSX 2027 (odhad)</div>
@@ -547,11 +592,18 @@ function renderPredikce() {
       <div class="pred-month-sub">Ročně · předpokládaný nárůst +5%</div>
     </div>
   `;
+
+  // Graf predikce
+  const labels2026 = MONTHS.map((m,i) => {
+    const d = data2026.find(x => x.mesic === i+1);
+    return m + ' 26';
+  });
   const values2026 = MONTHS.map((m,i) => {
     const d = data2026.find(x => x.mesic === i+1);
     return d ? d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem : null;
   });
   const valuesPred = MONTHS.map(() => avgTotal * rust);
+
   if (charts['chartPredikce']) charts['chartPredikce'].destroy();
   const ctx = document.getElementById('chartPredikce');
   if (ctx) {
@@ -561,7 +613,7 @@ function renderPredikce() {
         labels: MONTHS.map(m => m),
         datasets: [
           { label: 'Skutečnost 2026', data: values2026, backgroundColor: '#2563eb99', borderColor: '#2563eb', borderWidth: 2, borderRadius: 4 },
-          { label: 'Predikce 2027', data: valuesPred, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4 }
+          { label: 'Predikce 2027', data: valuesPred, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4, borderDash: [5,5] }
         ]
       },
       options: {
@@ -644,78 +696,39 @@ function renderTrend() {
   if (years.length < 2) return;
   const yearColors = ['#2563eb', '#d97706', '#059669', '#9333ea'];
   const yearDash = [[], [6,3], [2,4], [8,3]];
-
-  // Graf trendů nákladů a spotřeby
   if (charts['chartTrend']) charts['chartTrend'].destroy();
   const ctx = document.getElementById('chartTrend');
-  if (ctx) {
-    charts['chartTrend'] = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: MONTHS,
-        datasets: [
-          ...years.map((yr, yi) => ({
-            label: '💰 Náklady ' + yr,
-            data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row ? row.el_celkem + row.fsx_celkem + row.gas_celkem + row.water_celkem : null; }),
-            borderColor: yearColors[yi % yearColors.length], backgroundColor: 'transparent', borderWidth: 2.5,
-            borderDash: yearDash[yi % yearDash.length], pointRadius: 3, tension: 0.4, fill: false, yAxisID: 'yLeft', spanGaps: false,
-          })),
-          ...years.map((yr, yi) => ({
-            label: '⚡ Spotřeba el. ' + yr,
-            data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row ? row.el_kwh + row.fsx_kwh : null; }),
-            borderColor: yearColors[yi % yearColors.length], backgroundColor: 'transparent', borderWidth: 1.5,
-            borderDash: [3, 3], pointRadius: 2, tension: 0.4, fill: false, yAxisID: 'yRight', spanGaps: false,
-          })),
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: { legend: { display: true, labels: { font: { family: 'Epilogue', size: 10 }, boxWidth: 12 } } },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
-          yLeft: { type: 'linear', position: 'left', grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmtCzk(v) }, title: { display: true, text: 'Náklady (Kč)', font: { size: 10 }, color: '#9a9088' } },
-          yRight: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmt(v) + ' kWh' }, title: { display: true, text: 'Spotřeba el. (kWh)', font: { size: 10 }, color: '#9a9088' } }
-        }
+  if (!ctx) return;
+  charts['chartTrend'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        ...years.map((yr, yi) => ({
+          label: '💰 Náklady ' + yr,
+          data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row ? row.el_celkem + row.fsx_celkem + row.gas_celkem + row.water_celkem : null; }),
+          borderColor: yearColors[yi % yearColors.length], backgroundColor: 'transparent', borderWidth: 2.5,
+          borderDash: yearDash[yi % yearDash.length], pointRadius: 3, tension: 0.4, fill: false, yAxisID: 'yLeft', spanGaps: false,
+        })),
+        ...years.map((yr, yi) => ({
+          label: '⚡ Spotřeba el. ' + yr,
+          data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row ? row.el_kwh + row.fsx_kwh : null; }),
+          borderColor: yearColors[yi % yearColors.length], backgroundColor: 'transparent', borderWidth: 1.5,
+          borderDash: [3, 3], pointRadius: 2, tension: 0.4, fill: false, yAxisID: 'yRight', spanGaps: false,
+        })),
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: true, labels: { font: { family: 'Epilogue', size: 10 }, boxWidth: 12 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
+        yLeft: { type: 'linear', position: 'left', grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmtCzk(v) }, title: { display: true, text: 'Náklady (Kč)', font: { size: 10 }, color: '#9a9088' } },
+        yRight: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmt(v) + ' kWh' }, title: { display: true, text: 'Spotřeba el. (kWh)', font: { size: 10 }, color: '#9a9088' } }
       }
-    });
-  }
-
-  // Graf průměrné ceny elektřiny
-  if (charts['chartAvgPrice']) charts['chartAvgPrice'].destroy();
-  const ctxP = document.getElementById('chartAvgPrice');
-  if (ctxP) {
-    charts['chartAvgPrice'] = new Chart(ctxP, {
-      type: 'line',
-      data: {
-        labels: MONTHS,
-        datasets: years.map((yr, yi) => ({
-          label: String(yr),
-          data: MONTHS.map((_, mi) => {
-            const row = allData.find(d => d.rok === yr && d.mesic === mi + 1);
-            return row && row.el_avg_price > 0 ? row.el_avg_price : null;
-          }),
-          borderColor: yearColors[yi % yearColors.length],
-          backgroundColor: 'transparent',
-          borderWidth: 2.5,
-          borderDash: yearDash[yi % yearDash.length],
-          pointRadius: 4,
-          tension: 0.4,
-          fill: false,
-          spanGaps: false,
-        }))
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: { legend: { labels: { font: { family: 'Epilogue', size: 11 }, boxWidth: 12 } } },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
-          y: { grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => v.toFixed(2).replace('.', ',') + ' Kč' } }
-        }
-      }
-    });
-  }
+    }
+  });
 }
 
 function renderCharts() {
