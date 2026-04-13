@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spotřeba Energií</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Epilogue:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg: #f0ede8;
+  --surface: #ffffff;
+  --surface2: #f7f5f1;
+  --border: #e0dbd3;
+  --text: #1a1714;
+  --muted: #9a9088;
+  --el: #2563eb;
+  --el-light: #dbeafe;
+  --fsx: #0891b2;
+  --fsx-light: #cffafe;
+  --gas: #d97706;
+  --gas-light: #fef3c7;
+  --water: #059669;
+  --water-light: #d1fae5;
+  --pred: #7c3aed;
+  --pred-light: #ede9fe;
+  --radius: 16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Epilogue', sans-serif; font-weight: 300; min-height: 100vh; }
+
+#warehouseScreen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+.warehouse-card { background: var(--surface); border-radius: var(--radius); padding: 48px; max-width: 520px; width: 100%; border: 1px solid var(--border); }
+.warehouse-title { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.warehouse-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 32px; }
+.warehouse-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.warehouse-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; cursor: pointer; transition: all 0.15s; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80px; }
+.warehouse-btn:hover { border-color: var(--text); background: var(--surface); }
+.wh-name { font-size: 1.4rem; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.wh-label { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+#dashboard { display: none; }
+.topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 64px; position: sticky; top: 0; z-index: 100; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-title { font-size: 1rem; font-weight: 600; color: var(--text); }
+.topbar-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 0.8rem; font-weight: 600; color: var(--text); }
+.topbar-actions { display: flex; gap: 10px; align-items: center; }
+.btn-sm { padding: 8px 16px; border-radius: 8px; font-family: 'Epilogue', sans-serif; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text); transition: all 0.15s; }
+.btn-sm:hover { border-color: var(--text); }
+.btn-sm.accent { background: var(--text); color: white; border-color: var(--text); }
+
+.main { padding: 32px; max-width: 1200px; margin: 0 auto; }
+.tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 10px; padding: 4px; margin-bottom: 32px; width: fit-content; }
+.tab { padding: 8px 20px; border-radius: 8px; border: none; background: transparent; font-family: 'Epilogue', sans-serif; font-size: 0.85rem; font-weight: 500; cursor: pointer; color: var(--muted); transition: all 0.15s; }
+.tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.card { background: var(--surface); border-radius: var(--radius); padding: 24px; border: 1px solid var(--border); }
+.card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.card-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+.card-label { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.card-value { font-size: 1.8rem; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+.card-sub { font-size: 0.8rem; color: var(--muted); }
+.el .card-icon { background: var(--el-light); }
+.fsx .card-icon { background: var(--fsx-light); }
+.gas .card-icon { background: var(--gas-light); }
+.water .card-icon { background: var(--water-light); }
+.pred-card .card-icon { background: var(--pred-light); }
+
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 32px; }
+.chart-card { background: var(--surface); border-radius: var(--radius); padding: 24px; border: 1px solid var(--border); }
+.chart-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; }
+.chart-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 20px; }
+.chart-wrap { position: relative; height: 200px; }
+.chart-wrap-tall { position: relative; height: 360px; }
+
+.trend-card { background: var(--surface); border-radius: var(--radius); padding: 24px; border: 1px solid var(--border); margin-bottom: 32px; }
+.trend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.trend-title { font-size: 0.95rem; font-weight: 600; }
+.trend-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 20px; }
+
+.table-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; margin-bottom: 32px; }
+.table-header { padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.table-title { font-size: 0.95rem; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; }
+th { padding: 12px 16px; text-align: left; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); background: var(--surface2); }
+td { padding: 12px 16px; font-size: 0.85rem; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface2); }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.form-section { background: var(--surface); border-radius: var(--radius); padding: 24px; border: 1px solid var(--border); margin-bottom: 20px; }
+.form-section-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.section-dot { width: 10px; height: 10px; border-radius: 50%; }
+.field { margin-bottom: 16px; }
+label { display: block; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 8px; }
+input, select { width: 100%; padding: 12px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Epilogue', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+input:focus { border-color: var(--el); }
+.month-picker { display: flex; gap: 12px; margin-bottom: 24px; }
+.month-picker .field { flex: 1; margin: 0; }
+.btn-primary { padding: 16px 32px; background: var(--text); border: none; border-radius: 10px; color: white; font-family: 'Epilogue', sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-primary:hover { background: #333; transform: translateY(-1px); }
+
+.pred-section { background: var(--surface); border-radius: var(--radius); padding: 24px; border: 1px solid var(--border); margin-bottom: 20px; }
+.pred-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; color: var(--pred); }
+.pred-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 20px; }
+.price-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--pred-light); border: 1px solid #c4b5fd; border-radius: 10px; padding: 12px 20px; margin-bottom: 20px; flex-wrap: wrap; }
+.price-badge-value { font-size: 1.4rem; font-weight: 700; color: var(--pred); }
+.price-badge-label { font-size: 0.8rem; color: var(--muted); }
+.calc-result { background: var(--pred-light); border: 1px solid #c4b5fd; border-radius: 12px; padding: 20px; margin-top: 16px; text-align: center; display: none; }
+.calc-result-value { font-size: 2rem; font-weight: 700; color: var(--pred); }
+.calc-result-label { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+.pred-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.pred-month-card { background: var(--surface2); border-radius: 10px; padding: 16px; border: 1px solid var(--border); }
+.pred-month-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
+.pred-month-value { font-size: 1.2rem; font-weight: 600; color: var(--text); }
+.pred-month-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+.ote-status { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); margin-bottom: 16px; }
+.ote-dot { width: 8px; height: 8px; border-radius: 50%; background: #059669; }
+.ote-dot.loading { background: #d97706; }
+
+.loading-overlay { position: fixed; inset: 0; background: rgba(240,237,232,0.8); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(4px); }
+.loading-box { background: white; border-radius: 16px; padding: 32px 48px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.12); }
+.spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 0.9rem; color: var(--muted); }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-icon { font-size: 3rem; margin-bottom: 12px; }
+.toast { position: fixed; bottom: 24px; right: 24px; background: #1a1714; color: white; padding: 14px 20px; border-radius: 10px; font-size: 0.9rem; display: none; z-index: 300; }
+.toast.show { display: block; }
+.toast.error { background: #dc2626; }
+
+@media (max-width: 768px) {
+  .chart-grid, .pred-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .main { padding: 16px; }
+  .warehouse-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay" style="display:none">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Načítám data…</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="warehouseScreen">
+  <div class="warehouse-card">
+    <div class="warehouse-title">⚡ Přehled spotřeby energií</div>
+    <div class="warehouse-sub">Vyberte sklad</div>
+    <div class="warehouse-grid">
+      <div class="warehouse-btn" onclick="selectWarehouse('CZLC4')">
+        <div class="wh-name">CZLC4</div><div class="wh-label">Sklad</div>
+      </div>
+      <div class="warehouse-btn" onclick="selectWarehouse('LCÚ')">
+        <div class="wh-name">LCÚ</div><div class="wh-label">Sklad</div>
+      </div>
+      <div class="warehouse-btn" onclick="selectWarehouse('LCZ')">
+        <div class="wh-name">LCZ</div><div class="wh-label">Sklad</div>
+      </div>
+      <div class="warehouse-btn" onclick="selectWarehouse('SKLC3')">
+        <div class="wh-name">SKLC3</div><div class="wh-label">Sklad</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title">⚡ Energie Dashboard</div>
+      <div class="topbar-badge" id="topbarWarehouse"></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-sm" onclick="loadData()">↻ Aktualizovat</button>
+      <button class="btn-sm accent" onclick="showTab('entry')">+ Přidat data</button>
+      <button class="btn-sm" onclick="backToWarehouse()">← Sklady</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('overview')">Přehled</button>
+      <button class="tab" onclick="showTab('charts')">Grafy</button>
+      <button class="tab" onclick="showTab('history')">Historie</button>
+      <button class="tab" onclick="showTab('prediction')">📈 Predikce</button>
+      <button class="tab" onclick="showTab('entry')">Zadání dat</button>
+    </div>
+
+    <!-- PŘEHLED -->
+    <div id="tab-overview">
+      <div class="cards">
+        <div class="card el">
+          <div class="card-header"><div class="card-icon">⚡</div><div class="card-label">Elektřina (Innogy)</div></div>
+          <div class="card-value" id="sum-el-kwh">—</div>
+          <div class="card-sub" id="sum-el-czk">Poslední měsíc</div>
+        </div>
+        <div class="card fsx">
+          <div class="card-header"><div class="card-icon">🏢</div><div class="card-label">FSX společné prostory</div></div>
+          <div class="card-value" id="sum-fsx-kwh">—</div>
+          <div class="card-sub" id="sum-fsx-czk">Poslední měsíc</div>
+        </div>
+        <div class="card gas">
+          <div class="card-header"><div class="card-icon">🔥</div><div class="card-label">Plyn (Pražská plynárenská)</div></div>
+          <div class="card-value" id="sum-gas-m3">—</div>
+          <div class="card-sub" id="sum-gas-czk">Poslední měsíc</div>
+        </div>
+        <div class="card water">
+          <div class="card-header"><div class="card-icon">💧</div><div class="card-label">Voda (GLP)</div></div>
+          <div class="card-value" id="sum-water-m3">—</div>
+          <div class="card-sub" id="sum-water-czk">Poslední měsíc</div>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Elektřina — spotřeba</div>
+          <div class="chart-sub">kWh / měsíc (Innogy + FSX)</div>
+          <div class="chart-wrap"><canvas id="chartElKwh"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Náklady celkem</div>
+          <div class="chart-sub">Kč / měsíc (všechny energie)</div>
+          <div class="chart-wrap"><canvas id="chartCosts"></canvas></div>
+        </div>
+      </div>
+      <div class="trend-card">
+        <div class="trend-header"><div class="trend-title">📈 Trendy — meziroční změna (%)</div></div>
+        <div class="trend-sub">Plná čára = náklady celkem (Kč) · Přerušovaná = spotřeba elektřiny (kWh)</div>
+        <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
+      </div>
+    </div>
+
+    <!-- GRAFY -->
+    <div id="tab-charts" style="display:none">
+      <div style="font-size:0.78rem;font-weight:600;color:var(--el);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;padding:12px 0 0">⚡ Elektřina (Innogy + FSX)</div>
+      <div class="chart-grid" style="margin-bottom:32px">
+        <div class="chart-card"><div class="chart-title">Spotřeba</div><div class="chart-sub">kWh / měsíc</div><div class="chart-wrap"><canvas id="chartElKwh2"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Náklady</div><div class="chart-sub">Kč / měsíc</div><div class="chart-wrap"><canvas id="chartElCzk2"></canvas></div></div>
+      </div>
+      <div style="font-size:0.78rem;font-weight:600;color:var(--gas);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">🔥 Plyn</div>
+      <div class="chart-grid" style="margin-bottom:32px">
+        <div class="chart-card"><div class="chart-title">Spotřeba</div><div class="chart-sub">kWh / měsíc</div><div class="chart-wrap"><canvas id="chartGasM3"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Náklady</div><div class="chart-sub">Kč / měsíc</div><div class="chart-wrap"><canvas id="chartGasCzk"></canvas></div></div>
+      </div>
+      <div style="font-size:0.78rem;font-weight:600;color:var(--water);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">💧 Voda</div>
+      <div class="chart-grid">
+        <div class="chart-card"><div class="chart-title">Spotřeba</div><div class="chart-sub">m³ / měsíc</div><div class="chart-wrap"><canvas id="chartWaterM3"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Náklady</div><div class="chart-sub">Kč / měsíc</div><div class="chart-wrap"><canvas id="chartWaterCzk"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- HISTORIE -->
+    <div id="tab-history" style="display:none">
+      <div class="table-card">
+        <div class="table-header"><div class="table-title">Historie měsíčních odečtů</div></div>
+        <div id="tableContainer">
+          <div class="empty-state"><div class="empty-icon">📊</div><div>Zatím žádná data.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PREDIKCE -->
+    <div id="tab-prediction" style="display:none">
+
+      <div id="cenovyAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px 20px;margin-bottom:20px;align-items:center;gap:12px">
+        <div style="font-size:1.5rem">🚨</div>
+        <div>
+          <div style="font-weight:600;color:#dc2626;font-size:0.95rem">Vysoká cena elektřiny na trhu!</div>
+          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální OTE cena překročila hranici 2 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
+        </div>
+      </div>
+
+      <div class="pred-section">
+        <div class="pred-title">⚡ Aktuální cena elektřiny na trhu</div>
+        <div class="pred-sub">Zadejte aktuální spot cenu z <a href="https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/den-dopredu" target="_blank" style="color:var(--pred)">OTE-CR.cz</a> — Base Load · aktualizujte jednou týdně</div>
+        <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px">
+          <div class="field" style="margin:0;flex:1;max-width:200px">
+            <label>Cena OTE [Kč/MWh]</label>
+            <input type="number" id="oteManual" placeholder="např. 2749" oninput="nastavOteCenu()" style="width:100%" />
+          </div>
+          <button class="btn-sm accent" onclick="nastavOteCenu()" style="height:44px">Nastavit</button>
+        </div>
+        <div class="ote-status"><div class="ote-dot" id="oteDot"></div><span id="oteStatus">Zadejte cenu výše</span></div>
+        <div class="price-badge">
+          <div>
+            <div class="price-badge-value" id="oteCena">—</div>
+            <div class="price-badge-label">Kč / MWh</div>
+          </div>
+          <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
+            <div class="price-badge-value" id="oteCenaKwh">—</div>
+            <div class="price-badge-label">Kč / kWh</div>
+          </div>
+          <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
+            <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">Alert hranice</div>
+            <div style="font-size:0.95rem;font-weight:600;color:var(--text)">2 500 Kč/MWh</div>
+            <div style="font-size:0.72rem;color:var(--muted)">Nad touto hranicí = upozornění</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pred-section">
+        <div class="pred-title">🔢 Kalkulačka nákladů podle SJL</div>
+        <div class="pred-sub">Koeficient: 0,069 kWh/SJL (průměr 2025–2026). SJL se předvyplní automaticky z posledního měsíce v Sheets.</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Počet SJL</label>
+            <input type="number" id="calcSjl" placeholder="např. 5 267 585" oninput="vypocitej()" />
+          </div>
+          <div class="field">
+            <label>Vlastní cena Kč/kWh (volitelné)</label>
+            <input type="number" id="calcCena" placeholder="prázdné = použít OTE cenu" step="0.01" oninput="vypocitej()" />
+          </div>
+        </div>
+        <div class="calc-result" id="calcResult">
+          <div class="calc-result-value" id="calcResultValue">—</div>
+          <div class="calc-result-label" id="calcResultLabel">Odhadovaná cena za silovou elektřinu</div>
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:8px" id="calcResultDetail"></div>
+        </div>
+      </div>
+
+      <div class="pred-section">
+        <div class="pred-title">📅 Predikce roku 2027</div>
+        <div class="pred-sub">Odhad na základě historických dat a průměrného růstu +5%.</div>
+        <div class="pred-grid" id="predGrid">
+          <div class="empty-state" style="padding:20px"><div>Načítám historická data…</div></div>
+        </div>
+        <div class="chart-card" style="margin-top:20px">
+          <div class="chart-title">Predikce nákladů 2027 vs. skutečnost 2026</div>
+          <div class="chart-sub">Modrá = skutečnost 2026 · Fialová = predikce 2027</div>
+          <div class="chart-wrap-tall"><canvas id="chartPredikce"></canvas></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ZADÁNÍ DAT -->
+    <div id="tab-entry" style="display:none">
+      <div class="month-picker">
+        <div class="field"><label>Měsíc</label>
+          <select id="entryMonth">
+            <option value="1">Leden</option><option value="2">Únor</option>
+            <option value="3">Březen</option><option value="4">Duben</option>
+            <option value="5">Květen</option><option value="6">Červen</option>
+            <option value="7">Červenec</option><option value="8">Srpen</option>
+            <option value="9">Září</option><option value="10">Říjen</option>
+            <option value="11">Listopad</option><option value="12">Prosinec</option>
+          </select>
+        </div>
+        <div class="field"><label>Rok</label><input type="number" id="entryYear" value="2026" min="2020" max="2030" /></div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title"><div class="section-dot" style="background:var(--el)"></div> Elektřina — Innogy</div>
+        <div class="form-grid">
+          <div class="field"><label>Spotřeba [kWh]</label><input type="number" id="el_kwh" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Ø cena [Kč/kWh]</label><input type="number" id="el_avg_price" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Cena sil.el. [Kč]</label><input type="number" id="el_silova" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Cena distribuce [Kč]</label><input type="number" id="el_distribuce" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Cena celkem [Kč]</label><input type="number" id="el_celkem" placeholder="0" step="0.01" /></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title"><div class="section-dot" style="background:var(--fsx)"></div> FSX — Společné prostory</div>
+        <div class="form-grid">
+          <div class="field"><label>Spotřeba [kWh]</label><input type="number" id="fsx_kwh" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Ø cena [Kč/kWh]</label><input type="number" id="fsx_avg_price" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Cena celkem [Kč]</label><input type="number" id="fsx_celkem" placeholder="0" step="0.01" /></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title"><div class="section-dot" style="background:var(--gas)"></div> Plyn — Pražská plynárenská</div>
+        <div class="form-grid">
+          <div class="field"><label>Spotřeba [kWh]</label><input type="number" id="gas_kwh" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Ø cena [Kč/kWh]</label><input type="number" id="gas_avg_price" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Cena celkem [Kč]</label><input type="number" id="gas_celkem" placeholder="0" step="0.01" /></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title"><div class="section-dot" style="background:var(--water)"></div> Voda — GLP (přefakturace)</div>
+        <div class="form-grid">
+          <div class="field"><label>Spotřeba [m³]</label><input type="number" id="water_m3" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Ø cena [Kč/m³]</label><input type="number" id="water_avg_price" placeholder="0" step="0.01" /></div>
+          <div class="field"><label>Cena celkem [Kč]</label><input type="number" id="water_celkem" placeholder="0" step="0.01" /></div>
+        </div>
+      </div>
+      <button class="btn-primary" onclick="saveData()">Uložit do Google Sheets →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzfRP2cvMrwjbsCgQPzfbQsVABB68OYdpTPajGRT4hbhBbVWoGPJIJJTfMy6PbbhfTwCQ/exec';
+const MONTHS = ['Led','Úno','Bře','Dub','Kvě','Čer','Čvc','Srp','Zář','Říj','Lis','Pro'];
+let allData = [];
+let charts = {};
+let currentWarehouse = '';
+let otePrice = null;
+
+function selectWarehouse(name) {
+  currentWarehouse = name;
+  document.getElementById('topbarWarehouse').textContent = name;
+  document.getElementById('warehouseScreen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  const now = new Date();
+  document.getElementById('entryMonth').value = now.getMonth() + 1;
+  document.getElementById('entryYear').value = now.getFullYear();
+  loadData();
+  loadOtePrice();
+}
+
+function backToWarehouse() {
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('warehouseScreen').style.display = 'flex';
+  allData = [];
+  Object.values(charts).forEach(c => { try { c.destroy(); } catch(e) {} });
+  charts = {};
+}
+
+function loadOtePrice() {
+  const ulozena = localStorage.getItem('otePrice');
+  const ulozenaDate = localStorage.getItem('otePriceDate');
+  if (ulozena) {
+    otePrice = parseInt(ulozena);
+    const zdroj = ulozenaDate ? 'Zadáno ručně · ' + ulozenaDate : 'Zadáno ručně';
+    zobrazOteCenu(otePrice, zdroj);
+  } else {
+    document.getElementById('oteDot').classList.remove('loading');
+    document.getElementById('oteStatus').textContent = 'Zadejte cenu ručně výše';
+  }
+}
+
+function nastavOteCenu() {
+  const val = parseFloat(document.getElementById('oteManual').value);
+  if (!val || val <= 0) return;
+  otePrice = val;
+  const dnes = new Date().toLocaleDateString('cs-CZ');
+  localStorage.setItem('otePrice', val);
+  localStorage.setItem('otePriceDate', dnes);
+  zobrazOteCenu(val, 'Zadáno ručně · ' + dnes);
+  zkontrolujAlert(val);
+  vypocitej();
+}
+
+function zobrazOteCenu(cena, zdroj) {
+  document.getElementById('oteCena').textContent = fmt(cena);
+  document.getElementById('oteCenaKwh').textContent = (cena/1000).toFixed(3).replace('.', ',');
+  document.getElementById('oteStatus').textContent = zdroj + ' — ' + new Date().toLocaleDateString('cs-CZ');
+  document.getElementById('oteDot').classList.remove('loading');
+  zkontrolujAlert(cena);
+  vypocitej();
+}
+
+const SJL_KOEFICIENT = 0.069;
+const ALERT_HRANICE = 2500;
+
+function vypocitej() {
+  const sjl = parseFloat(document.getElementById('calcSjl').value) || 0;
+  const vlastniCena = parseFloat(document.getElementById('calcCena').value) || 0;
+  if (!sjl) { document.getElementById('calcResult').style.display = 'none'; return; }
+  const odhadKwh = sjl * SJL_KOEFICIENT;
+  const pouzitaCena = vlastniCena > 0 ? vlastniCena : (otePrice ? otePrice/1000 : 1.65);
+  const celkem = odhadKwh * pouzitaCena;
+  document.getElementById('calcResult').style.display = 'block';
+  document.getElementById('calcResultValue').textContent = fmtCzk(celkem);
+  document.getElementById('calcResultLabel').textContent = 'Odhadovaná cena za silovou elektřinu';
+  document.getElementById('calcResultDetail').textContent = 
+    `${fmt(sjl)} SJL × ${SJL_KOEFICIENT} kWh/SJL = ${fmt(odhadKwh)} kWh × ${pouzitaCena.toFixed(3).replace('.',',')} Kč/kWh = ${fmtCzk(celkem)}`;
+}
+
+function zkontrolujAlert(cena) {
+  const alert = document.getElementById('cenovyAlert');
+  if (cena && cena > ALERT_HRANICE) {
+    alert.style.display = 'flex';
+  } else {
+    alert.style.display = 'none';
+  }
+}
+
+function renderPredikce() {
+  // Automaticky předvyplň SJL z posledního měsíce
+  if (allData.length > 0) {
+    const last = allData[allData.length - 1];
+    if (last.sjl && last.sjl > 0) {
+      const sjlInput = document.getElementById('calcSjl');
+      if (sjlInput && !sjlInput.value) {
+        sjlInput.value = last.sjl;
+        vypocitej();
+      }
+    }
+  }
+
+  if (allData.length < 3) {
+    document.getElementById('predGrid').innerHTML = '<div class="empty-state" style="padding:20px;grid-column:1/-1"><div class="empty-icon">📊</div><div>Pro predikci potřebujete alespoň 3 měsíce historických dat.</div></div>';
+    return;
+  }
+
+  const data2026 = allData.filter(d => d.rok === 2026);
+  const vsechnaData = [...allData].sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
+  const avgEl = vsechnaData.reduce((s,d) => s + d.el_celkem, 0) / vsechnaData.length;
+  const avgFsx = vsechnaData.reduce((s,d) => s + d.fsx_celkem, 0) / vsechnaData.length;
+  const avgGas = vsechnaData.reduce((s,d) => s + d.gas_celkem, 0) / vsechnaData.length;
+  const avgWater = vsechnaData.reduce((s,d) => s + d.water_celkem, 0) / vsechnaData.length;
+  const avgTotal = avgEl + avgFsx + avgGas + avgWater;
+  const rust = 1.05;
+
+  document.getElementById('predGrid').innerHTML = `
+    <div class="pred-month-card">
+      <div class="pred-month-label">⚡ Elektřina + FSX 2027 (odhad)</div>
+      <div class="pred-month-value">${fmtCzk((avgEl+avgFsx) * 12 * rust)}</div>
+      <div class="pred-month-sub">Ročně · průměr ${fmtCzk((avgEl+avgFsx) * rust)}/měsíc</div>
+    </div>
+    <div class="pred-month-card">
+      <div class="pred-month-label">🔥 Plyn 2027 (odhad)</div>
+      <div class="pred-month-value">${fmtCzk(avgGas * 12 * rust)}</div>
+      <div class="pred-month-sub">Ročně · průměr ${fmtCzk(avgGas * rust)}/měsíc</div>
+    </div>
+    <div class="pred-month-card">
+      <div class="pred-month-label">💧 Voda 2027 (odhad)</div>
+      <div class="pred-month-value">${fmtCzk(avgWater * 12 * rust)}</div>
+      <div class="pred-month-sub">Ročně · průměr ${fmtCzk(avgWater * rust)}/měsíc</div>
+    </div>
+    <div class="pred-month-card" style="background:var(--pred-light);border-color:#c4b5fd">
+      <div class="pred-month-label" style="color:var(--pred)">📊 Celkem 2027 (odhad)</div>
+      <div class="pred-month-value" style="color:var(--pred)">${fmtCzk(avgTotal * 12 * rust)}</div>
+      <div class="pred-month-sub">Ročně · předpokládaný nárůst +5%</div>
+    </div>
+  `;
+
+  const values2026 = MONTHS.map((m,i) => {
+    const d = data2026.find(x => x.mesic === i+1);
+    return d ? d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem : null;
+  });
+  const valuesPred = MONTHS.map(() => avgTotal * rust);
+
+  if (charts['chartPredikce']) charts['chartPredikce'].destroy();
+  const ctx = document.getElementById('chartPredikce');
+  if (ctx) {
+    charts['chartPredikce'] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: MONTHS,
+        datasets: [
+          { label: 'Skutečnost 2026', data: values2026, backgroundColor: '#2563eb99', borderColor: '#2563eb', borderWidth: 2, borderRadius: 4 },
+          { label: 'Predikce 2027', data: valuesPred, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { font: { family: 'Epilogue', size: 11 } } } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
+          y: { grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmtCzk(v) } }
+        }
+      }
+    });
+  }
+}
+
+async function loadData() {
+  showLoading('Načítám data…');
+  try {
+    const res = await fetch(SCRIPT_URL + '?sheet=' + encodeURIComponent(currentWarehouse));
+    const d = await res.json();
+    const rows = d.values || [];
+    if (rows.length <= 1) { allData = []; }
+    else {
+      allData = rows.slice(1).map(row => ({
+        rok: +row[0], mesic: +row[1],
+        el_kwh: +row[2]||0, el_avg_price: +row[3]||0, el_silova: +row[4]||0,
+        el_distribuce: +row[5]||0, el_celkem: +row[6]||0,
+        fsx_kwh: +row[7]||0, fsx_avg_price: +row[8]||0, fsx_celkem: +row[9]||0,
+        gas_kwh: +row[10]||0, gas_avg_price: +row[11]||0, gas_celkem: +row[12]||0,
+        water_m3: +row[13]||0, water_avg_price: +row[14]||0, water_celkem: +row[15]||0,
+        sjl: +row[17]||0,
+      })).sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
+    }
+    hideLoading();
+    renderAll();
+  } catch(e) { hideLoading(); showToast('Chyba načítání: ' + e.message, true); }
+}
+
+async function saveData() {
+  const rok = +document.getElementById('entryYear').value;
+  const mesic = +document.getElementById('entryMonth').value;
+  const row = [rok, mesic,
+    v('el_kwh'), v('el_avg_price'), v('el_silova'), v('el_distribuce'), v('el_celkem'),
+    v('fsx_kwh'), v('fsx_avg_price'), v('fsx_celkem'),
+    v('gas_kwh'), v('gas_avg_price'), v('gas_celkem'),
+    v('water_m3'), v('water_avg_price'), v('water_celkem')
+  ];
+  showLoading('Ukládám do Google Sheets…');
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'append', sheet: currentWarehouse, row })
+    });
+    hideLoading();
+    showToast('✓ Uloženo do Google Sheets!');
+    setTimeout(() => loadData(), 2000);
+    showTab('overview');
+  } catch(e) { hideLoading(); showToast('Chyba uložení: ' + e.message, true); }
+}
+
+function v(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function renderAll() { renderSummaryCards(); renderCharts(); renderTrend(); renderTable(); renderPredikce(); }
+
+function renderSummaryCards() {
+  if (!allData.length) return;
+  const last = allData[allData.length - 1];
+  const label = `${MONTHS[last.mesic-1]} ${last.rok}`;
+  document.getElementById('sum-el-kwh').textContent = fmt(last.el_kwh) + ' kWh';
+  document.getElementById('sum-el-czk').textContent = fmtCzk(last.el_celkem) + ' · ' + label;
+  document.getElementById('sum-fsx-kwh').textContent = fmt(last.fsx_kwh) + ' kWh';
+  document.getElementById('sum-fsx-czk').textContent = fmtCzk(last.fsx_celkem) + ' · ' + label;
+  document.getElementById('sum-gas-m3').textContent = fmt(last.gas_kwh) + ' kWh';
+  document.getElementById('sum-gas-czk').textContent = fmtCzk(last.gas_celkem) + ' · ' + label;
+  document.getElementById('sum-water-m3').textContent = fmt(last.water_m3) + ' m³';
+  document.getElementById('sum-water-czk').textContent = fmtCzk(last.water_celkem) + ' · ' + label;
+}
+
+function renderTrend() {
+  if (!allData.length) return;
+  const years = [...new Set(allData.map(d => d.rok))].sort();
+  if (years.length < 2) return;
+  const yearColors = ['#2563eb', '#d97706', '#059669', '#9333ea'];
+  const yearDash = [[], [6,3], [2,4], [8,3]];
+  if (charts['chartTrend']) charts['chartTrend'].destroy();
+  const ctx = document.getElementById('chartTrend');
+  if (!ctx) return;
+  charts['chartTrend'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: [
+        ...years.map((yr, yi) => ({
+          label: '💰 Náklady ' + yr,
+          data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row ? row.el_celkem + row.fsx_celkem + row.gas_celkem + row.water_celkem : null; }),
+          borderColor: yearColors[yi % yearColors.length], backgroundColor: 'transparent', borderWidth: 2.5,
+          borderDash: yearDash[yi % yearDash.length], pointRadius: 3, tension: 0.4, fill: false, yAxisID: 'yLeft', spanGaps: false,
+        })),
+        ...years.map((yr, yi) => ({
+          label: '⚡ Spotřeba el. ' + yr,
+          data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row ? row.el_kwh + row.fsx_kwh : null; }),
+          borderColor: yearColors[yi % yearColors.length], backgroundColor: 'transparent', borderWidth: 1.5,
+          borderDash: [3, 3], pointRadius: 2, tension: 0.4, fill: false, yAxisID: 'yRight', spanGaps: false,
+        })),
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: true, labels: { font: { family: 'Epilogue', size: 10 }, boxWidth: 12 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
+        yLeft: { type: 'linear', position: 'left', grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmtCzk(v) }, title: { display: true, text: 'Náklady (Kč)', font: { size: 10 }, color: '#9a9088' } },
+        yRight: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmt(v) + ' kWh' }, title: { display: true, text: 'Spotřeba el. (kWh)', font: { size: 10 }, color: '#9a9088' } }
+      }
+    }
+  });
+}
+
+function renderCharts() {
+  if (!allData.length) return;
+  const labels = allData.map(d => MONTHS[d.mesic-1] + ' ' + String(d.rok).slice(2));
+  mkChart('chartElKwh', labels, [{ label: 'Innogy kWh', data: allData.map(d=>d.el_kwh), color: '#2563eb' }, { label: 'FSX kWh', data: allData.map(d=>d.fsx_kwh), color: '#0891b2' }]);
+  mkChart('chartCosts', labels, [{ label: 'Elektřina', data: allData.map(d=>d.el_celkem), color: '#2563eb' }, { label: 'FSX', data: allData.map(d=>d.fsx_celkem), color: '#0891b2' }, { label: 'Plyn', data: allData.map(d=>d.gas_celkem), color: '#d97706' }, { label: 'Voda', data: allData.map(d=>d.water_celkem), color: '#059669' }]);
+  mkChart('chartElKwh2', labels, [{ label: 'Innogy kWh', data: allData.map(d=>d.el_kwh), color: '#2563eb' }, { label: 'FSX kWh', data: allData.map(d=>d.fsx_kwh), color: '#0891b2' }], 'bar', true);
+  mkChart('chartElCzk2', labels, [{ label: 'Innogy Kč', data: allData.map(d=>d.el_celkem), color: '#2563eb' }, { label: 'FSX Kč', data: allData.map(d=>d.fsx_celkem), color: '#0891b2' }], 'bar', true);
+  mkChart('chartGasM3', labels, [{ label: 'kWh', data: allData.map(d=>d.gas_kwh), color: '#d97706' }]);
+  mkChart('chartWaterM3', labels, [{ label: 'm³', data: allData.map(d=>d.water_m3), color: '#059669' }]);
+  mkChart('chartGasCzk', labels, [{ label: 'Kč', data: allData.map(d=>d.gas_celkem), color: '#d97706' }]);
+  mkChart('chartWaterCzk', labels, [{ label: 'Kč', data: allData.map(d=>d.water_celkem), color: '#059669' }]);
+}
+
+function mkChart(id, labels, datasets, type='bar', stacked=false) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  charts[id] = new Chart(ctx, {
+    type,
+    data: { labels, datasets: datasets.map(ds => ({ label: ds.label, data: ds.data, backgroundColor: ds.color + '99', borderColor: ds.color, borderWidth: 2, borderRadius: 4 })) },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: datasets.length > 1, labels: { font: { family: 'Epilogue', size: 11 }, boxWidth: 12 } } }, scales: { x: { stacked, grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } }, y: { stacked, grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 } } } } }
+  });
+}
+
+function renderTable() {
+  const container = document.getElementById('tableContainer');
+  if (!allData.length) { container.innerHTML = `<div class="empty-state"><div class="empty-icon">📊</div><div>Zatím žádná data.</div></div>`; return; }
+  const rows = [...allData].reverse().map(d => `
+    <tr>
+      <td>${MONTHS[d.mesic-1]} ${d.rok}</td>
+      <td>${fmt(d.el_kwh)} kWh<br><small style="color:var(--muted)">${fmtCzk(d.el_celkem)}</small></td>
+      <td>${fmt(d.fsx_kwh)} kWh<br><small style="color:var(--muted)">${fmtCzk(d.fsx_celkem)}</small></td>
+      <td>${fmt(d.gas_kwh)} kWh<br><small style="color:var(--muted)">${fmtCzk(d.gas_celkem)}</small></td>
+      <td>${fmt(d.water_m3)} m³<br><small style="color:var(--muted)">${fmtCzk(d.water_celkem)}</small></td>
+      <td style="font-weight:500">${fmtCzk(d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem)}</td>
+      <td>${d.sjl ? fmt(d.sjl) : '—'}</td>
+    </tr>`).join('');
+  container.innerHTML = `<table><thead><tr><th>Měsíc</th><th>⚡ Elektřina</th><th>🏢 FSX</th><th>🔥 Plyn</th><th>💧 Voda</th><th>Celkem</th><th>📦 SJL</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function fmt(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:1}) : '0'; }
+function fmtCzk(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' Kč' : '0 Kč'; }
+
+function showTab(name) {
+  ['overview','charts','history','prediction','entry'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((btn, i) => {
+    btn.classList.toggle('active', ['overview','charts','history','prediction','entry'][i] === name);
+  });
+  if (name === 'prediction') renderPredikce();
+}
+
+function showLoading(text) { document.getElementById('loadingText').textContent = text || 'Načítám…'; document.getElementById('loadingOverlay').style.display = 'flex'; }
+function hideLoading() { document.getElementById('loadingOverlay').style.display = 'none'; }
+
+function showToast(msg, error) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (error ? ' error' : '');
+  setTimeout(() => t.className = 'toast', 3000);
+}
+</script>
+</body>
+</html>
