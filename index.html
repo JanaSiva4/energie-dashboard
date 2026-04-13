@@ -231,18 +231,18 @@ input:focus { border-color: var(--el); }
         </div>
       </div>
       <div class="trend-card">
-        <div class="trend-header"><div class="trend-title">📈 Trendy — energetický benchmarking </div></div>
+        <div class="trend-header"><div class="trend-title">📈 Trendy — Energetický benchmarking</div></div>
         <div class="trend-sub">Plná čára = náklady celkem (Kč) · Přerušovaná = spotřeba elektřiny (kWh)</div>
         <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
       </div>
+      
       <div class="trend-card">
-        <div class="trend-header"><div class="trend-title">💰 Průměrná cena elektřiny (Kč/kWh)</div></div>
-        <div class="trend-sub">Vývoj průměrné jednotkové ceny silové elektřiny v čase</div>
-        <div class="chart-wrap"><canvas id="chartAvgPrice"></canvas></div>
+        <div class="trend-header"><div class="trend-title">📊 Trendy — Průměrná cena elektřiny</div></div>
+        <div class="trend-sub">Kč / kWh (Innogy)</div>
+        <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
       </div>
     </div>
 
-    <!-- GRAFY -->
     <div id="tab-charts" style="display:none">
       <div style="font-size:0.78rem;font-weight:600;color:var(--el);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;padding:12px 0 0">⚡ Elektřina (Innogy + FSX)</div>
       <div class="chart-grid" style="margin-bottom:32px">
@@ -281,6 +281,15 @@ input:focus { border-color: var(--el); }
           <div class="chart-title">Náklady</div>
           <div class="chart-sub">Kč / měsíc</div>
           <div class="chart-wrap"><canvas id="chartWaterCzk"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-history" style="display:none">
+      <div class="table-card">
+        <div class="table-header"><div class="table-title">Historie měsíčních odečtů</div></div>
+        <div id="tableContainer">
+          <div class="empty-state"><div class="empty-icon">📊</div><div>Zatím žádná data.</div></div>
         </div>
       </div>
     </div>
@@ -361,6 +370,7 @@ input:focus { border-color: var(--el); }
           <div class="chart-wrap-tall"><canvas id="chartPredikce"></canvas></div>
         </div>
       </div>
+
     </div>
 
     <div id="tab-entry" style="display:none">
