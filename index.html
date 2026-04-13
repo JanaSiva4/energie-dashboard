@@ -306,12 +306,19 @@ input:focus { border-color: var(--el); }
       <!-- Aktuální cena OTE -->
       <div class="pred-section">
         <div class="pred-title">⚡ Aktuální cena elektřiny na trhu</div>
-        <div class="pred-sub">Denní spot cena z OTE-CR.cz — Operátor trhu s elektřinou</div>
-        <div class="ote-status"><div class="ote-dot loading" id="oteDot"></div><span id="oteStatus">Načítám cenu z OTE…</span></div>
+        <div class="pred-sub">Zadejte aktuální spot cenu z <a href="https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/den-dopredu" target="_blank" style="color:var(--pred)">OTE-CR.cz</a> — aktualizujte jednou týdně</div>
+        <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px">
+          <div class="field" style="margin:0;flex:1;max-width:200px">
+            <label>Cena OTE [Kč/MWh]</label>
+            <input type="number" id="oteManual" placeholder="např. 1650" oninput="nastavOteCenu()" style="width:100%" />
+          </div>
+          <button class="btn-sm accent" onclick="nastavOteCenu()" style="height:44px">Nastavit</button>
+        </div>
+        <div class="ote-status"><div class="ote-dot" id="oteDot"></div><span id="oteStatus">Zadejte cenu výše</span></div>
         <div class="price-badge">
           <div>
             <div class="price-badge-value" id="oteCena">—</div>
-            <div class="price-badge-label">Kč / MWh (dnešní průměr)</div>
+            <div class="price-badge-label">Kč / MWh</div>
           </div>
           <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
             <div class="price-badge-value" id="oteCenaKwh">—</div>
@@ -321,6 +328,12 @@ input:focus { border-color: var(--el); }
             <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">Alert hranice</div>
             <div style="font-size:0.95rem;font-weight:600;color:var(--text)">2 500 Kč/MWh</div>
             <div style="font-size:0.72rem;color:var(--muted)">Nad touto hranicí = upozornění</div>
+          </div>
+          <div style="margin-left:20px">
+            <button onclick="document.getElementById('rucniCenaBox').style.display='flex'" 
+              style="padding:8px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-family:Epilogue,sans-serif;font-size:0.8rem;cursor:pointer;color:var(--text)">
+              ✏️ Změnit cenu
+            </button>
           </div>
         </div>
       </div>
@@ -445,66 +458,31 @@ function backToWarehouse() {
   charts = {};
 }
 
-async function loadOtePrice() {
-  // 1. Zkus Sourceful Energy API (ENTSO-E data, zdarma, bez registrace)
-  try {
-    const res = await fetch('https://api.sourceful.energy/price/electricity/CZ');
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.current_price) {
-        const kczMwh = Math.round(data.current_price * 25);
-        otePrice = kczMwh;
-        zobrazOteCenu(otePrice, 'Sourceful Energy (ENTSO-E)');
-        return;
-      }
-      // Zkus jiné formáty odpovědi
-      if (data && data.prices && data.prices.length > 0) {
-        const now = new Date().getHours();
-        const aktualni = data.prices[now] || data.prices[0];
-        const kczMwh = Math.round(aktualni * 25);
-        otePrice = kczMwh;
-        zobrazOteCenu(otePrice, 'Sourceful Energy (ENTSO-E)');
-        return;
-      }
-    }
-  } catch(e) {
-    console.log('Sourceful chyba:', e.message);
+function loadOtePrice() {
+  // Načti uloženou cenu z localStorage
+  const ulozena = localStorage.getItem('otePrice');
+  const ulozenaDate = localStorage.getItem('otePriceDate');
+  if (ulozena) {
+    otePrice = parseInt(ulozena);
+    const zdroj = ulozenaDate ? 'Zadáno ručně · ' + ulozenaDate : 'Zadáno ručně';
+    zobrazOteCenu(otePrice, zdroj);
+  } else {
+    document.getElementById('oteDot').classList.remove('loading');
+    document.getElementById('oteStatus').textContent = 'Zadejte cenu ručně výše';
   }
+}
 
-  // 2. Zkus Energy-Charts API (Fraunhofer ISE)
-  try {
-    const today = new Date();
-    const dateStr = today.toISOString().split('T')[0];
-    const url = `https://api.energy-charts.info/price?bzn=CZ&start=${dateStr}&end=${dateStr}`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.price && data.price.length > 0) {
-        const validPrices = data.price.filter(p => p !== null);
-        const avgEur = validPrices.reduce((a,b) => a+b, 0) / validPrices.length;
-        otePrice = Math.round(avgEur * 25);
-        zobrazOteCenu(otePrice, 'Energy-Charts (Fraunhofer ISE)');
-        return;
-      }
-    }
-  } catch(e) {
-    console.log('Energy-Charts chyba:', e.message);
-  }
-
-  // 3. Zkus Apps Script
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=ote');
-    const d = await res.json();
-    if (d && d.price) {
-      otePrice = d.price;
-      zobrazOteCenu(otePrice, 'Google Sheets');
-      return;
-    }
-  } catch(e) {}
-  
-  // 4. Poslední fallback
-  otePrice = 1650;
-  zobrazOteCenu(otePrice, 'Odhadovaná průměrná cena');
+function nastavOteCenu() {
+  const val = parseFloat(document.getElementById('oteManual').value);
+  if (!val || val <= 0) return;
+  otePrice = val;
+  // Ulož do localStorage
+  const dnes = new Date().toLocaleDateString('cs-CZ');
+  localStorage.setItem('otePrice', val);
+  localStorage.setItem('otePriceDate', dnes);
+  zobrazOteCenu(val, 'Zadáno ručně · ' + dnes);
+  zkontrolujAlert(val);
+  vypocitej();
 }
 
 function zobrazOteCenu(cena, zdroj) {
