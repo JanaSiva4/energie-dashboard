@@ -103,11 +103,10 @@ input:focus { border-color: var(--el); }
 .btn-primary { padding: 16px 32px; background: var(--text); border: none; border-radius: 10px; color: white; font-family: 'Epilogue', sans-serif; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .btn-primary:hover { background: #333; transform: translateY(-1px); }
 
-/* PREDIKCE */
 .pred-section { background: var(--surface); border-radius: var(--radius); padding: 24px; border: 1px solid var(--border); margin-bottom: 20px; }
 .pred-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; color: var(--pred); }
 .pred-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 20px; }
-.price-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--pred-light); border: 1px solid #c4b5fd; border-radius: 10px; padding: 12px 20px; margin-bottom: 20px; }
+.price-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--pred-light); border: 1px solid #c4b5fd; border-radius: 10px; padding: 12px 20px; margin-bottom: 20px; flex-wrap: wrap; }
 .price-badge-value { font-size: 1.4rem; font-weight: 700; color: var(--pred); }
 .price-badge-label { font-size: 0.8rem; color: var(--muted); }
 .calc-result { background: var(--pred-light); border: 1px solid #c4b5fd; border-radius: 12px; padding: 20px; margin-top: 16px; text-align: center; display: none; }
@@ -195,6 +194,7 @@ input:focus { border-color: var(--el); }
       <button class="tab" onclick="showTab('entry')">Zadání dat</button>
     </div>
 
+    <!-- PŘEHLED -->
     <div id="tab-overview">
       <div class="cards">
         <div class="card el">
@@ -232,59 +232,31 @@ input:focus { border-color: var(--el); }
       </div>
       <div class="trend-card">
         <div class="trend-header"><div class="trend-title">📈 Trendy — meziroční změna (%)</div></div>
-        <div class="trend-sub">Plná čára = náklady celkem (Kč) · Přerušovaná = spotřeba elektřiny (kWh)</div>
+        <div class="trend-sub">Plná čára = náklady celkem (Kč) · Tečkovaná = spotřeba elektřiny (kWh) · Přerušovaná fialová = Ø cena el. (Kč/kWh)</div>
         <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
-      </div>
-      
-      <div class="trend-card">
-        <div class="trend-header"><div class="trend-title">📊 Trend průměrné ceny elektřiny</div></div>
-        <div class="trend-sub">Kč / kWh (Innogy)</div>
-        <div class="chart-wrap-tall"><canvas id="chartAvgPriceTrend"></canvas></div>
       </div>
     </div>
 
+    <!-- GRAFY -->
     <div id="tab-charts" style="display:none">
       <div style="font-size:0.78rem;font-weight:600;color:var(--el);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;padding:12px 0 0">⚡ Elektřina (Innogy + FSX)</div>
       <div class="chart-grid" style="margin-bottom:32px">
-        <div class="chart-card">
-          <div class="chart-title">Spotřeba</div>
-          <div class="chart-sub">kWh / měsíc</div>
-          <div class="chart-wrap"><canvas id="chartElKwh2"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">Náklady</div>
-          <div class="chart-sub">Kč / měsíc</div>
-          <div class="chart-wrap"><canvas id="chartElCzk2"></canvas></div>
-        </div>
+        <div class="chart-card"><div class="chart-title">Spotřeba</div><div class="chart-sub">kWh / měsíc</div><div class="chart-wrap"><canvas id="chartElKwh2"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Náklady</div><div class="chart-sub">Kč / měsíc</div><div class="chart-wrap"><canvas id="chartElCzk2"></canvas></div></div>
       </div>
       <div style="font-size:0.78rem;font-weight:600;color:var(--gas);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">🔥 Plyn</div>
       <div class="chart-grid" style="margin-bottom:32px">
-        <div class="chart-card">
-          <div class="chart-title">Spotřeba</div>
-          <div class="chart-sub">kWh / měsíc</div>
-          <div class="chart-wrap"><canvas id="chartGasM3"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">Náklady</div>
-          <div class="chart-sub">Kč / měsíc</div>
-          <div class="chart-wrap"><canvas id="chartGasCzk"></canvas></div>
-        </div>
+        <div class="chart-card"><div class="chart-title">Spotřeba</div><div class="chart-sub">kWh / měsíc</div><div class="chart-wrap"><canvas id="chartGasM3"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Náklady</div><div class="chart-sub">Kč / měsíc</div><div class="chart-wrap"><canvas id="chartGasCzk"></canvas></div></div>
       </div>
       <div style="font-size:0.78rem;font-weight:600;color:var(--water);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">💧 Voda</div>
       <div class="chart-grid">
-        <div class="chart-card">
-          <div class="chart-title">Spotřeba</div>
-          <div class="chart-sub">m³ / měsíc</div>
-          <div class="chart-wrap"><canvas id="chartWaterM3"></canvas></div>
-        </div>
-        <div class="chart-card">
-          <div class="chart-title">Náklady</div>
-          <div class="chart-sub">Kč / měsíc</div>
-          <div class="chart-wrap"><canvas id="chartWaterCzk"></canvas></div>
-        </div>
+        <div class="chart-card"><div class="chart-title">Spotřeba</div><div class="chart-sub">m³ / měsíc</div><div class="chart-wrap"><canvas id="chartWaterM3"></canvas></div></div>
+        <div class="chart-card"><div class="chart-title">Náklady</div><div class="chart-sub">Kč / měsíc</div><div class="chart-wrap"><canvas id="chartWaterCzk"></canvas></div></div>
       </div>
     </div>
 
+    <!-- HISTORIE -->
     <div id="tab-history" style="display:none">
       <div class="table-card">
         <div class="table-header"><div class="table-title">Historie měsíčních odečtů</div></div>
@@ -294,6 +266,7 @@ input:focus { border-color: var(--el); }
       </div>
     </div>
 
+    <!-- PREDIKCE -->
     <div id="tab-prediction" style="display:none">
 
       <div id="cenovyAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px 20px;margin-bottom:20px;align-items:center;gap:12px">
@@ -306,11 +279,11 @@ input:focus { border-color: var(--el); }
 
       <div class="pred-section">
         <div class="pred-title">⚡ Aktuální cena elektřiny na trhu</div>
-        <div class="pred-sub">Zadejte aktuální spot cenu z <a href="https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/den-dopredu" target="_blank" style="color:var(--pred)">OTE-CR.cz</a> — aktualizujte jednou týdně</div>
+        <div class="pred-sub">Zadejte aktuální spot cenu z <a href="https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/den-dopredu" target="_blank" style="color:var(--pred)">OTE-CR.cz</a> — Base Load · aktualizujte jednou týdně</div>
         <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px">
           <div class="field" style="margin:0;flex:1;max-width:200px">
             <label>Cena OTE [Kč/MWh]</label>
-            <input type="number" id="oteManual" placeholder="např. 1650" oninput="nastavOteCenu()" style="width:100%" />
+            <input type="number" id="oteManual" placeholder="např. 2749" oninput="nastavOteCenu()" style="width:100%" />
           </div>
           <button class="btn-sm accent" onclick="nastavOteCenu()" style="height:44px">Nastavit</button>
         </div>
@@ -329,18 +302,12 @@ input:focus { border-color: var(--el); }
             <div style="font-size:0.95rem;font-weight:600;color:var(--text)">2 500 Kč/MWh</div>
             <div style="font-size:0.72rem;color:var(--muted)">Nad touto hranicí = upozornění</div>
           </div>
-          <div style="margin-left:20px">
-            <button onclick="document.getElementById('rucniCenaBox').style.display='flex'" 
-              style="padding:8px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-family:Epilogue,sans-serif;font-size:0.8rem;cursor:pointer;color:var(--text)">
-              ✏️ Změnit cenu
-            </button>
-          </div>
         </div>
       </div>
 
       <div class="pred-section">
         <div class="pred-title">🔢 Kalkulačka nákladů podle SJL</div>
-        <div class="pred-sub">Zadejte počet SJL (Store Job Lines) a získejte odhad spotřeby a nákladů při aktuální tržní ceně. Koeficient: 0,069 kWh/SJL (průměr 2025–2026, 13 měsíců)</div>
+        <div class="pred-sub">Koeficient: 0,069 kWh/SJL (průměr 2025–2026). SJL se předvyplní automaticky z posledního měsíce v Sheets.</div>
         <div class="form-grid">
           <div class="field">
             <label>Počet SJL</label>
@@ -360,7 +327,7 @@ input:focus { border-color: var(--el); }
 
       <div class="pred-section">
         <div class="pred-title">📅 Predikce roku 2027</div>
-        <div class="pred-sub">Odhad na základě historických dat a průměrného růstu. Čím více měsíců máte v historii, tím přesnější predikce.</div>
+        <div class="pred-sub">Odhad na základě historických dat a průměrného růstu +5%.</div>
         <div class="pred-grid" id="predGrid">
           <div class="empty-state" style="padding:20px"><div>Načítám historická data…</div></div>
         </div>
@@ -373,6 +340,7 @@ input:focus { border-color: var(--el); }
 
     </div>
 
+    <!-- ZADÁNÍ DAT -->
     <div id="tab-entry" style="display:none">
       <div class="month-picker">
         <div class="field"><label>Měsíc</label>
@@ -429,7 +397,6 @@ input:focus { border-color: var(--el); }
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzfRP2cvMrwjbsCgQPzfbQsVABB68OYdpTPajGRT4hbhBbVWoGPJIJJTfMy6PbbhfTwCQ/exec';
 const MONTHS = ['Led','Úno','Bře','Dub','Kvě','Čer','Čvc','Srp','Zář','Říj','Lis','Pro'];
-const MONTHS_FULL = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
 let allData = [];
 let charts = {};
 let currentWarehouse = '';
@@ -508,14 +475,31 @@ function vypocitej() {
 
 function zkontrolujAlert(cena) {
   const alert = document.getElementById('cenovyAlert');
-  if (cena && cena > ALERT_HRANICE) { alert.style.display = 'flex'; } else { alert.style.display = 'none'; }
+  if (cena && cena > ALERT_HRANICE) {
+    alert.style.display = 'flex';
+  } else {
+    alert.style.display = 'none';
+  }
 }
 
 function renderPredikce() {
+  // Automaticky předvyplň SJL z posledního měsíce
+  if (allData.length > 0) {
+    const last = allData[allData.length - 1];
+    if (last.sjl && last.sjl > 0) {
+      const sjlInput = document.getElementById('calcSjl');
+      if (sjlInput && !sjlInput.value) {
+        sjlInput.value = last.sjl;
+        vypocitej();
+      }
+    }
+  }
+
   if (allData.length < 3) {
     document.getElementById('predGrid').innerHTML = '<div class="empty-state" style="padding:20px;grid-column:1/-1"><div class="empty-icon">📊</div><div>Pro predikci potřebujete alespoň 3 měsíce historických dat.</div></div>';
     return;
   }
+
   const data2026 = allData.filter(d => d.rok === 2026);
   const vsechnaData = [...allData].sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
   const avgEl = vsechnaData.reduce((s,d) => s + d.el_celkem, 0) / vsechnaData.length;
@@ -524,35 +508,30 @@ function renderPredikce() {
   const avgWater = vsechnaData.reduce((s,d) => s + d.water_celkem, 0) / vsechnaData.length;
   const avgTotal = avgEl + avgFsx + avgGas + avgWater;
   const rust = 1.05;
-  const predRocniEl = avgEl * 12 * rust;
-  const predRocniGas = avgGas * 12 * rust;
-  const predRocniWater = avgWater * 12 * rust;
-  const predRocniTotal = (avgEl + avgFsx + avgGas + avgWater) * 12 * rust;
 
   document.getElementById('predGrid').innerHTML = `
     <div class="pred-month-card">
       <div class="pred-month-label">⚡ Elektřina + FSX 2027 (odhad)</div>
-      <div class="pred-month-value">${fmtCzk(predRocniEl)}</div>
-      <div class="pred-month-sub">Ročně · průměr ${fmtCzk(avgEl * rust)}/měsíc</div>
+      <div class="pred-month-value">${fmtCzk((avgEl+avgFsx) * 12 * rust)}</div>
+      <div class="pred-month-sub">Ročně · průměr ${fmtCzk((avgEl+avgFsx) * rust)}/měsíc</div>
     </div>
     <div class="pred-month-card">
       <div class="pred-month-label">🔥 Plyn 2027 (odhad)</div>
-      <div class="pred-month-value">${fmtCzk(predRocniGas)}</div>
+      <div class="pred-month-value">${fmtCzk(avgGas * 12 * rust)}</div>
       <div class="pred-month-sub">Ročně · průměr ${fmtCzk(avgGas * rust)}/měsíc</div>
     </div>
     <div class="pred-month-card">
       <div class="pred-month-label">💧 Voda 2027 (odhad)</div>
-      <div class="pred-month-value">${fmtCzk(predRocniWater)}</div>
+      <div class="pred-month-value">${fmtCzk(avgWater * 12 * rust)}</div>
       <div class="pred-month-sub">Ročně · průměr ${fmtCzk(avgWater * rust)}/měsíc</div>
     </div>
     <div class="pred-month-card" style="background:var(--pred-light);border-color:#c4b5fd">
       <div class="pred-month-label" style="color:var(--pred)">📊 Celkem 2027 (odhad)</div>
-      <div class="pred-month-value" style="color:var(--pred)">${fmtCzk(predRocniTotal)}</div>
+      <div class="pred-month-value" style="color:var(--pred)">${fmtCzk(avgTotal * 12 * rust)}</div>
       <div class="pred-month-sub">Ročně · předpokládaný nárůst +5%</div>
     </div>
   `;
 
-  const labels2026 = MONTHS.map((m,i) => m + ' 26');
   const values2026 = MONTHS.map((m,i) => {
     const d = data2026.find(x => x.mesic === i+1);
     return d ? d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem : null;
@@ -565,10 +544,10 @@ function renderPredikce() {
     charts['chartPredikce'] = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: MONTHS.map(m => m),
+        labels: MONTHS,
         datasets: [
           { label: 'Skutečnost 2026', data: values2026, backgroundColor: '#2563eb99', borderColor: '#2563eb', borderWidth: 2, borderRadius: 4 },
-          { label: 'Predikce 2027', data: valuesPred, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4, borderDash: [5,5] }
+          { label: 'Predikce 2027', data: valuesPred, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4 }
         ]
       },
       options: {
@@ -598,6 +577,7 @@ async function loadData() {
         fsx_kwh: +row[7]||0, fsx_avg_price: +row[8]||0, fsx_celkem: +row[9]||0,
         gas_kwh: +row[10]||0, gas_avg_price: +row[11]||0, gas_celkem: +row[12]||0,
         water_m3: +row[13]||0, water_avg_price: +row[14]||0, water_celkem: +row[15]||0,
+        sjl: +row[17]||0,
       })).sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
     }
     hideLoading();
@@ -629,7 +609,7 @@ async function saveData() {
 }
 
 function v(id) { return parseFloat(document.getElementById(id).value) || 0; }
-function renderAll() { renderSummaryCards(); renderCharts(); renderTrend(); renderTable(); renderPredikce(); renderAvgPriceTrend(); }
+function renderAll() { renderSummaryCards(); renderCharts(); renderTrend(); renderTable(); renderPredikce(); }
 
 function renderSummaryCards() {
   if (!allData.length) return;
@@ -645,7 +625,6 @@ function renderSummaryCards() {
   document.getElementById('sum-water-czk').textContent = fmtCzk(last.water_celkem) + ' · ' + label;
 }
 
-// NOVÁ FUNKCE PRO GRAF PRŮMĚRNÉ CENY V PŘEHLEDU
 function renderAvgPriceTrend() {
   if (!allData.length) return;
   const labels = allData.map(d => MONTHS[d.mesic-1] + ' ' + String(d.rok).slice(2));
@@ -658,13 +637,14 @@ function renderAvgPriceTrend() {
       labels: labels,
       datasets: [{
         label: 'Ø Cena Innogy (Kč/kWh)',
-        data: allData.map(d => d.el_avg_price),
+        data: allData.map(d => d.el_avg_price > 0 ? d.el_avg_price : null),
         borderColor: '#7c3aed',
         backgroundColor: '#7c3aed33',
         borderWidth: 3,
         pointRadius: 4,
         tension: 0.3,
-        fill: true
+        fill: true,
+        spanGaps: false
       }]
     },
     options: {
@@ -673,7 +653,7 @@ function renderAvgPriceTrend() {
       plugins: { legend: { display: false } },
       scales: {
         x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
-        y: { grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => v.toFixed(2) + ' Kč' } }
+        y: { grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => v.toFixed(2).replace('.',',') + ' Kč' } }
       }
     }
   });
@@ -705,6 +685,18 @@ function renderTrend() {
           borderColor: yearColors[yi % yearColors.length], backgroundColor: 'transparent', borderWidth: 1.5,
           borderDash: [3, 3], pointRadius: 2, tension: 0.4, fill: false, yAxisID: 'yRight', spanGaps: false,
         })),
+        ...years.map((yr, yi) => ({
+          label: '💲 Ø cena el. ' + yr,
+          data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row && row.el_avg_price > 0 ? row.el_avg_price : null; }),
+          borderColor: '#e11d48', backgroundColor: 'transparent', borderWidth: 1.5,
+          borderDash: [8, 4], pointRadius: 3, tension: 0.4, fill: false, yAxisID: 'yPrice', spanGaps: false,
+        })),
+        ...years.map((yr, yi) => ({
+          label: '💜 Ø cena el. ' + yr,
+          data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row && row.el_avg_price > 0 ? row.el_avg_price : null; }),
+          borderColor: '#9333ea', backgroundColor: 'transparent', borderWidth: 2,
+          borderDash: [8, 4], pointRadius: 3, tension: 0.4, fill: false, yAxisID: 'yPrice', spanGaps: false,
+        })),
       ]
     },
     options: {
@@ -714,7 +706,9 @@ function renderTrend() {
       scales: {
         x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
         yLeft: { type: 'linear', position: 'left', grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmtCzk(v) }, title: { display: true, text: 'Náklady (Kč)', font: { size: 10 }, color: '#9a9088' } },
-        yRight: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmt(v) + ' kWh' }, title: { display: true, text: 'Spotřeba el. (kWh)', font: { size: 10 }, color: '#9a9088' } }
+        yRight: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmt(v) + ' kWh' }, title: { display: true, text: 'Spotřeba el. (kWh)', font: { size: 10 }, color: '#9a9088' } },
+        yPrice: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => v.toFixed(2).replace('.',',') + ' Kč/kWh' }, title: { display: true, text: 'Ø cena el. (Kč/kWh)', font: { size: 10 }, color: '#e11d48' } },
+        yPrice: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => v.toFixed(2).replace('.',',') + ' Kč/kWh' }, title: { display: true, text: 'Ø cena el. (Kč/kWh)', font: { size: 10 }, color: '#9333ea' } }
       }
     }
   });
@@ -755,8 +749,9 @@ function renderTable() {
       <td>${fmt(d.gas_kwh)} kWh<br><small style="color:var(--muted)">${fmtCzk(d.gas_celkem)}</small></td>
       <td>${fmt(d.water_m3)} m³<br><small style="color:var(--muted)">${fmtCzk(d.water_celkem)}</small></td>
       <td style="font-weight:500">${fmtCzk(d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem)}</td>
+      <td>${d.sjl ? fmt(d.sjl) : '—'}</td>
     </tr>`).join('');
-  container.innerHTML = `<table><thead><tr><th>Měsíc</th><th>⚡ Elektřina</th><th>🏢 FSX</th><th>🔥 Plyn</th><th>💧 Voda</th><th>Celkem</th></tr></thead><tbody>${rows}</tbody></table>`;
+  container.innerHTML = `<table><thead><tr><th>Měsíc</th><th>⚡ Elektřina</th><th>🏢 FSX</th><th>🔥 Plyn</th><th>💧 Voda</th><th>Celkem</th><th>📦 SJL</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function fmt(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:1}) : '0'; }
