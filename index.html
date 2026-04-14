@@ -231,9 +231,15 @@ input:focus { border-color: var(--el); }
         </div>
       </div>
       <div class="trend-card">
-        <div class="trend-header"><div class="trend-title">📈 Trendy — meziroční změna (%)</div></div>
+        <div class="trend-header"><div class="trend-title">📈 Trendy — meziroční změna</div></div>
         <div class="trend-sub">Plná čára = náklady celkem (Kč) · Tečkovaná = spotřeba elektřiny (kWh) · Přerušovaná fialová = Ø cena el. (Kč/kWh)</div>
         <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
+      </div>
+
+      <div class="trend-card">
+        <div class="trend-header"><div class="trend-title">📈 Trendy — energetický benchmarking</div></div>
+        <div class="trend-sub">Ø cena elektřiny Kč / kWh (Innogy) — historická průměrná cena z faktury</div>
+        <div class="chart-wrap-tall"><canvas id="chartAvgPriceTrend"></canvas></div>
       </div>
     </div>
 
@@ -685,18 +691,7 @@ function renderTrend() {
           borderColor: yearColors[yi % yearColors.length], backgroundColor: 'transparent', borderWidth: 1.5,
           borderDash: [3, 3], pointRadius: 2, tension: 0.4, fill: false, yAxisID: 'yRight', spanGaps: false,
         })),
-        ...years.map((yr, yi) => ({
-          label: '💲 Ø cena el. ' + yr,
-          data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row && row.el_avg_price > 0 ? row.el_avg_price : null; }),
-          borderColor: '#e11d48', backgroundColor: 'transparent', borderWidth: 1.5,
-          borderDash: [8, 4], pointRadius: 3, tension: 0.4, fill: false, yAxisID: 'yPrice', spanGaps: false,
-        })),
-        ...years.map((yr, yi) => ({
-          label: '💜 Ø cena el. ' + yr,
-          data: MONTHS.map((_, mi) => { const row = allData.find(d => d.rok === yr && d.mesic === mi + 1); return row && row.el_avg_price > 0 ? row.el_avg_price : null; }),
-          borderColor: '#9333ea', backgroundColor: 'transparent', borderWidth: 2,
-          borderDash: [8, 4], pointRadius: 3, tension: 0.4, fill: false, yAxisID: 'yPrice', spanGaps: false,
-        })),
+
       ]
     },
     options: {
@@ -706,9 +701,7 @@ function renderTrend() {
       scales: {
         x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
         yLeft: { type: 'linear', position: 'left', grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmtCzk(v) }, title: { display: true, text: 'Náklady (Kč)', font: { size: 10 }, color: '#9a9088' } },
-        yRight: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmt(v) + ' kWh' }, title: { display: true, text: 'Spotřeba el. (kWh)', font: { size: 10 }, color: '#9a9088' } },
-        yPrice: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => v.toFixed(2).replace('.',',') + ' Kč/kWh' }, title: { display: true, text: 'Ø cena el. (Kč/kWh)', font: { size: 10 }, color: '#e11d48' } },
-        yPrice: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => v.toFixed(2).replace('.',',') + ' Kč/kWh' }, title: { display: true, text: 'Ø cena el. (Kč/kWh)', font: { size: 10 }, color: '#9333ea' } }
+        yRight: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => fmt(v) + ' kWh' }, title: { display: true, text: 'Spotřeba el. (kWh)', font: { size: 10 }, color: '#9a9088' } }
       }
     }
   });
