@@ -615,7 +615,7 @@ async function saveData() {
 }
 
 function v(id) { return parseFloat(document.getElementById(id).value) || 0; }
-function renderAll() { renderSummaryCards(); renderCharts(); renderTrend(); renderTable(); renderPredikce(); }
+function renderAll() { renderSummaryCards(); renderCharts(); renderTrend(); renderTable(); renderPredikce(); renderAvgPriceTrend(); }
 
 function renderSummaryCards() {
   if (!allData.length) return;
