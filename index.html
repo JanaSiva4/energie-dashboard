@@ -643,7 +643,7 @@ function renderAvgPriceTrend() {
       labels: labels,
       datasets: [{
         label: 'Ø Cena Innogy (Kč/kWh)',
-        data: allData.map(d => d.el_avg_price > 0 ? d.el_avg_price : null),
+        data: allData.map(d => d.el_avg_price || null),
         borderColor: '#7c3aed',
         backgroundColor: '#7c3aed33',
         borderWidth: 3,
