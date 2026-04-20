@@ -472,7 +472,14 @@ function nastavOteCenu() {
 function zobrazOteCenu(cena, zdroj) {
   document.getElementById('oteCena').textContent = fmt(cena);
   document.getElementById('oteCenaKwh').textContent = (cena/1000).toFixed(3).replace('.', ',');
-  document.getElementById('oteStatus').textContent = zdroj + ' — ' + new Date().toLocaleDateString('cs-CZ');
+  // Vypočti příští pondělí
+  const dnes = new Date();
+  const denTydne = dnes.getDay(); // 0=ne, 1=po, ..., 6=so
+  const dniDoPondeli = denTydne === 0 ? 1 : (8 - denTydne);
+  const pristiPondeli = new Date(dnes);
+  pristiPondeli.setDate(dnes.getDate() + dniDoPondeli);
+  const pristiPondeliStr = pristiPondeli.toLocaleDateString('cs-CZ');
+  document.getElementById('oteStatus').textContent = zdroj + ' · Další aktualizace: ' + pristiPondeliStr;
   document.getElementById('oteDot').classList.remove('loading');
   zkontrolujAlert(cena);
   vypocitej();
