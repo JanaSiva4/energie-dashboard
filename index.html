@@ -121,6 +121,13 @@ input:focus { border-color: var(--el); }
 .ote-dot { width: 8px; height: 8px; border-radius: 50%; background: #059669; }
 .ote-dot.loading { background: #d97706; }
 
+.tooltip-wrap { position: relative; display: inline-flex; align-items: center; }
+.tooltip-icon { width: 18px; height: 18px; border-radius: 50%; background: var(--border); color: var(--muted); font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-left: 8px; flex-shrink: 0; }
+.tooltip-icon:hover { background: var(--pred); color: white; }
+.tooltip-box { display: none; position: absolute; left: 28px; top: -8px; background: var(--text); color: white; border-radius: 10px; padding: 14px 16px; width: 280px; font-size: 0.78rem; line-height: 1.6; z-index: 50; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+.tooltip-box::before { content: ''; position: absolute; left: -6px; top: 14px; width: 12px; height: 12px; background: var(--text); transform: rotate(45deg); border-radius: 2px; }
+.tooltip-icon:hover .tooltip-box { display: block; }
+
 .loading-overlay { position: fixed; inset: 0; background: rgba(240,237,232,0.8); display: none; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(4px); }
 .loading-box { background: white; border-radius: 16px; padding: 32px 48px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.12); }
 .spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
@@ -328,7 +335,22 @@ input:focus { border-color: var(--el); }
       </div>
 
       <div class="pred-section">
-        <div class="pred-title">🔢 Kalkulačka nákladů podle SJL</div>
+        <div class="pred-title" style="display:flex;align-items:center">
+          🔢 Kalkulačka nákladů podle SJL
+          <div class="tooltip-wrap">
+            <div class="tooltip-icon">?
+              <div class="tooltip-box">
+                <strong style="font-size:0.82rem">Co je SJL?</strong><br>
+                Store Job Lines — interní metrika počtu operací zpracovaných skladem za měsíc. Čím více práce sklad odvede, tím více SJL.<br><br>
+                <strong style="font-size:0.82rem">Jak funguje koeficient?</strong><br>
+                Z dat za 13 měsíců (2025–2026) byl vypočítán průměr: každá 1 SJL odpovídá spotřebě 0,069 kWh elektřiny.<br><br>
+                <strong style="font-size:0.82rem">Jak kalkulačka počítá?</strong><br>
+                SJL × 0,069 kWh = odhadovaná spotřeba<br>
+                spotřeba × OTE cena = odhadovaná cena silové elektřiny
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="pred-sub">Koeficient: 0,069 kWh/SJL (průměr 2025–2026). SJL se předvyplní automaticky z posledního měsíce v Sheets.</div>
         <div class="form-grid">
           <div class="field">
