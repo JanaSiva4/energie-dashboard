@@ -568,7 +568,13 @@ function renderPredikce() {
     const d = data2026.find(x => x.mesic === i+1);
     return d ? d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem : null;
   });
-  const valuesPred = MONTHS.map(() => avgTotal * rust);
+  // Predikce podle sezónního vzoru — pro každý měsíc vezmi průměr z posledních 2 let × 1.05
+  const valuesPred = MONTHS.map((_, mi) => {
+    const mesicData = zakladData.filter(d => d.mesic === mi + 1);
+    if (mesicData.length === 0) return avgTotal * rust;
+    const mesicAvg = mesicData.reduce((s,d) => s + d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem, 0) / mesicData.length;
+    return mesicAvg * rust;
+  });
 
   if (charts['chartPredikce']) charts['chartPredikce'].destroy();
   const ctx = document.getElementById('chartPredikce');
