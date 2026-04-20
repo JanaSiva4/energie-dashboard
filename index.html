@@ -530,11 +530,14 @@ function renderPredikce() {
   }
 
   const data2026 = allData.filter(d => d.rok === 2026);
-  const vsechnaData = [...allData].sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
-  const avgEl = vsechnaData.reduce((s,d) => s + d.el_celkem, 0) / vsechnaData.length;
-  const avgFsx = vsechnaData.reduce((s,d) => s + d.fsx_celkem, 0) / vsechnaData.length;
-  const avgGas = vsechnaData.reduce((s,d) => s + d.gas_celkem, 0) / vsechnaData.length;
-  const avgWater = vsechnaData.reduce((s,d) => s + d.water_celkem, 0) / vsechnaData.length;
+  // Predikce vychází z průměru posledních 2 let
+  const aktRok = Math.max(...allData.map(d => d.rok));
+  const zakladData = allData.filter(d => d.rok === aktRok || d.rok === aktRok - 1);
+  const zakladLen = zakladData.length || 1;
+  const avgEl = zakladData.reduce((s,d) => s + d.el_celkem, 0) / zakladLen;
+  const avgFsx = zakladData.reduce((s,d) => s + d.fsx_celkem, 0) / zakladLen;
+  const avgGas = zakladData.reduce((s,d) => s + d.gas_celkem, 0) / zakladLen;
+  const avgWater = zakladData.reduce((s,d) => s + d.water_celkem, 0) / zakladLen;
   const avgTotal = avgEl + avgFsx + avgGas + avgWater;
   const rust = 1.05;
 
