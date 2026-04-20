@@ -198,16 +198,25 @@ input:focus { border-color: var(--el); }
     <div id="tab-overview">
       <div class="cards">
         <div class="card el">
-          <div class="card-header"><div class="card-icon">⚡</div><div class="card-label">Elektřina (Innogy)</div></div>
-          <div class="card-value" id="sum-el-kwh">—</div>
-          <div class="card-sub" id="sum-el-czk">Poslední měsíc</div>
-          <div class="card-sub" id="ytd-el" style="margin-top:4px;color:var(--muted);font-size:0.75rem">YTD —</div>
-        </div>
-        <div class="card fsx">
-          <div class="card-header"><div class="card-icon">🏢</div><div class="card-label">FSX společné prostory</div></div>
-          <div class="card-value" id="sum-fsx-kwh">—</div>
-          <div class="card-sub" id="sum-fsx-czk">Poslední měsíc</div>
-          <div class="card-sub" id="ytd-fsx" style="margin-top:4px;color:var(--muted);font-size:0.75rem">YTD —</div>
+          <div class="card-header"><div class="card-icon">⚡</div><div class="card-label">Elektřina celkem (Innogy + FSX)</div></div>
+          <div class="card-value" id="sum-el-total-kwh">—</div>
+          <div class="card-sub" id="sum-el-total-czk">Poslední měsíc</div>
+          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--muted);margin-bottom:4px">
+              <span>⚡ Innogy</span><span id="sum-el-kwh">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--muted);margin-bottom:8px">
+              <span></span><span id="sum-el-czk">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--muted);margin-bottom:4px">
+              <span>🏢 FSX</span><span id="sum-fsx-kwh">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--muted)">
+              <span></span><span id="sum-fsx-czk">—</span>
+            </div>
+          </div>
+          <div class="card-sub" id="ytd-el" style="margin-top:8px;color:var(--muted);font-size:0.75rem">YTD —</div>
+          <div class="card-sub" id="ytd-fsx" style="margin-top:2px;color:var(--muted);font-size:0.75rem"></div>
         </div>
         <div class="card gas">
           <div class="card-header"><div class="card-icon">🔥</div><div class="card-label">Plyn (Pražská plynárenská)</div></div>
@@ -628,10 +637,15 @@ function renderSummaryCards() {
   if (!allData.length) return;
   const last = allData[allData.length - 1];
   const label = `${MONTHS[last.mesic-1]} ${last.rok}`;
+  // Sloučená karta Elektřina + FSX
+  const elTotalKwh = last.el_kwh + last.fsx_kwh;
+  const elTotalCzk = last.el_celkem + last.fsx_celkem;
+  document.getElementById('sum-el-total-kwh').textContent = fmt(elTotalKwh) + ' kWh';
+  document.getElementById('sum-el-total-czk').textContent = fmtCzk(elTotalCzk) + ' · ' + label;
   document.getElementById('sum-el-kwh').textContent = fmt(last.el_kwh) + ' kWh';
-  document.getElementById('sum-el-czk').textContent = fmtCzk(last.el_celkem) + ' · ' + label;
+  document.getElementById('sum-el-czk').textContent = fmtCzk(last.el_celkem);
   document.getElementById('sum-fsx-kwh').textContent = fmt(last.fsx_kwh) + ' kWh';
-  document.getElementById('sum-fsx-czk').textContent = fmtCzk(last.fsx_celkem) + ' · ' + label;
+  document.getElementById('sum-fsx-czk').textContent = fmtCzk(last.fsx_celkem);
   document.getElementById('sum-gas-m3').textContent = fmt(last.gas_kwh) + ' kWh';
   document.getElementById('sum-gas-czk').textContent = fmtCzk(last.gas_celkem) + ' · ' + label;
   document.getElementById('sum-water-m3').textContent = fmt(last.water_m3) + ' m³';
@@ -645,8 +659,8 @@ function renderSummaryCards() {
   const ytdGas = ytdData.reduce((s, d) => s + d.gas_celkem, 0);
   const ytdWater = ytdData.reduce((s, d) => s + d.water_celkem, 0);
   const ytdLabel = 'YTD ' + aktualniRok + ': ' + fmtCzk(ytdEl + ytdFsx + ytdGas + ytdWater);
-  document.getElementById('ytd-el').textContent = 'YTD ' + aktualniRok + ': ' + fmtCzk(ytdEl);
-  document.getElementById('ytd-fsx').textContent = 'YTD ' + aktualniRok + ': ' + fmtCzk(ytdFsx);
+  document.getElementById('ytd-el').textContent = 'YTD ' + aktualniRok + ': ' + fmtCzk(ytdEl + ytdFsx) + ' (el + FSX)';
+  document.getElementById('ytd-fsx').textContent = '';
   document.getElementById('ytd-gas').textContent = 'YTD ' + aktualniRok + ': ' + fmtCzk(ytdGas);
   document.getElementById('ytd-water').textContent = 'YTD ' + aktualniRok + ': ' + fmtCzk(ytdWater);
 }
