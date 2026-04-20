@@ -232,7 +232,7 @@ input:focus { border-color: var(--el); }
       </div>
       <div class="trend-card">
         <div class="trend-header"><div class="trend-title">📈 Trendy — meziroční změna</div></div>
-        <div class="trend-sub">Plná čára = náklady celkem (Kč) · Tečkovaná = spotřeba elektřiny (kWh)</div>
+        <div class="trend-sub">Plná čára = náklady celkem (Kč) · Tečkovaná = spotřeba elektřiny (kWh) · Přerušovaná fialová = Ø cena el. (Kč/kWh)</div>
         <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
       </div>
 
@@ -298,15 +298,18 @@ input:focus { border-color: var(--el); }
           <div>
             <div class="price-badge-value" id="oteCena">—</div>
             <div class="price-badge-label">Kč / MWh</div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;max-width:120px">Dnešní spot cena elektřiny na burze OTE</div>
           </div>
           <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
             <div class="price-badge-value" id="oteCenaKwh">—</div>
             <div class="price-badge-label">Kč / kWh</div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;max-width:120px">Přepočet pro srovnání s cenou na faktuře</div>
           </div>
           <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
             <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">Alert hranice</div>
-            <div style="font-size:0.95rem;font-weight:600;color:var(--text)">3 500 Kč/MWh</div>
+            <div style="font-size:0.95rem;font-weight:600;color:var(--text)" id="alertHranice">3 500 Kč/MWh</div>
             <div style="font-size:0.72rem;color:var(--muted)">Nad touto hranicí = upozornění</div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;max-width:120px">Při překročení se zobrazí červené upozornění</div>
           </div>
         </div>
       </div>
