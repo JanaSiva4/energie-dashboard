@@ -258,7 +258,7 @@ input:focus { border-color: var(--el); }
 
       <div class="trend-card">
         <div class="trend-header"><div class="trend-title">📈 Trendy — energetický benchmarking</div></div>
-        <div class="trend-sub">Ø cena elektřiny Kč / kWh (Innogy) — historická průměrná cena z faktury</div>
+        <div class="trend-sub">Kč / kWh (Innogy) — fialová = celková · modrá = silová elektřina · oranžová = distribuce</div>
         <div class="chart-wrap-tall"><canvas id="chartAvgPriceTrend"></canvas></div>
       </div>
     </div>
@@ -299,7 +299,7 @@ input:focus { border-color: var(--el); }
         <div style="font-size:1.5rem">🚨</div>
         <div>
           <div style="font-weight:600;color:#dc2626;font-size:0.95rem">Vysoká cena elektřiny na trhu!</div>
-          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální OTE cena překročila hranici 3 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
+          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální OTE cena překročila hranici 2 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
         </div>
       </div>
 
@@ -327,7 +327,7 @@ input:focus { border-color: var(--el); }
           </div>
           <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
             <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">Alert hranice</div>
-            <div style="font-size:0.95rem;font-weight:600;color:var(--text)" id="alertHranice">3 500 Kč/MWh</div>
+            <div style="font-size:0.95rem;font-weight:600;color:var(--text)" id="alertHranice">2 500 Kč/MWh</div>
             <div style="font-size:0.72rem;color:var(--muted)">Nad touto hranicí = upozornění</div>
             <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;max-width:120px">Při překročení se zobrazí červené upozornění</div>
           </div>
@@ -738,21 +738,50 @@ function renderAvgPriceTrend() {
   if (charts['chartAvgPriceTrend']) charts['chartAvgPriceTrend'].destroy();
   const ctx = document.getElementById('chartAvgPriceTrend');
   if (!ctx) return;
+  // Výpočet silové a distribuční ceny za kWh
+  const silovaNaKwh = allData.map(d => d.el_kwh > 0 ? d.el_silova / d.el_kwh : null);
+  const distribNaKwh = allData.map(d => d.el_kwh > 0 ? d.el_distribuce / d.el_kwh : null);
   charts['chartAvgPriceTrend'] = new Chart(ctx, {
     type: 'line',
     data: {
       labels: labels,
-      datasets: [{
-        label: 'Ø Cena Innogy (Kč/kWh)',
-        data: allData.map(d => d.el_avg_price),
-        borderColor: '#7c3aed',
-        backgroundColor: '#7c3aed33',
-        borderWidth: 3,
-        pointRadius: 4,
-        tension: 0.3,
-        fill: true,
-        spanGaps: false
-      }]
+      datasets: [
+        {
+          label: 'Ø Celková cena (Kč/kWh)',
+          data: allData.map(d => d.el_avg_price),
+          borderColor: '#7c3aed',
+          backgroundColor: 'transparent',
+          borderWidth: 3,
+          pointRadius: 4,
+          tension: 0.3,
+          fill: false,
+          spanGaps: false
+        },
+        {
+          label: 'Silová elektřina (Kč/kWh)',
+          data: silovaNaKwh,
+          borderColor: '#2563eb',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 3],
+          pointRadius: 3,
+          tension: 0.3,
+          fill: false,
+          spanGaps: false
+        },
+        {
+          label: 'Distribuce (Kč/kWh)',
+          data: distribNaKwh,
+          borderColor: '#d97706',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 3],
+          pointRadius: 3,
+          tension: 0.3,
+          fill: false,
+          spanGaps: false
+        }
+      ]
     },
     options: {
       responsive: true,
