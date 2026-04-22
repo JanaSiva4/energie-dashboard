@@ -299,7 +299,7 @@ input:focus { border-color: var(--el); }
         <div style="font-size:1.5rem">🚨</div>
         <div>
           <div style="font-weight:600;color:#dc2626;font-size:0.95rem">Vysoká cena elektřiny na trhu!</div>
-          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální OTE cena překročila hranici 3 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
+          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální OTE cena překročila hranici 2 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
         </div>
       </div>
 
@@ -327,7 +327,7 @@ input:focus { border-color: var(--el); }
           </div>
           <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
             <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">Alert hranice</div>
-            <div style="font-size:0.95rem;font-weight:600;color:var(--text)" id="alertHranice">3 500 Kč/MWh</div>
+            <div style="font-size:0.95rem;font-weight:600;color:var(--text)" id="alertHranice">2 500 Kč/MWh</div>
             <div style="font-size:0.72rem;color:var(--muted)">Nad touto hranicí = upozornění</div>
             <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;max-width:120px">Při překročení se zobrazí červené upozornění</div>
           </div>
@@ -364,7 +364,22 @@ input:focus { border-color: var(--el); }
         </div>
         <div class="calc-result" id="calcResult">
           <div class="calc-result-value" id="calcResultValue">—</div>
-          <div class="calc-result-label" id="calcResultLabel">Odhadovaná cena za silovou elektřinu</div>
+          <div class="calc-result-label" id="calcResultLabel" style="display:flex;align-items:center;justify-content:center;gap:6px">
+            Odhadovaná cena elektřiny (silová + distribuce)
+            <div class="tooltip-wrap">
+              <div class="tooltip-icon">?
+                <div class="tooltip-box" style="left:auto;right:28px;top:-8px">
+                  <strong style="font-size:0.82rem">Jak se výsledek počítá?</strong><br><br>
+                  <strong>Silová elektřina:</strong><br>
+                  SJL × 0,069 kWh × OTE cena (Kč/kWh)<br><br>
+                  <strong>Distribuce:</strong><br>
+                  Průměr distribuce na kWh z posledních 12 měsíců faktury × odhadovaná spotřeba<br><br>
+                  <strong>Výsledek = silová + distribuce</strong><br><br>
+                  <span style="color:#c4b5fd;font-size:0.72rem">Distribuce zahrnuje přenos elektřiny, systémové služby a regulované poplatky. Roste nezávisle na tržní ceně.</span>
+                </div>
+              </div>
+            </div>
+          </div>
           <div style="font-size:0.75rem;color:var(--muted);margin-top:8px" id="calcResultDetail"></div>
         </div>
       </div>
@@ -516,12 +531,24 @@ function vypocitej() {
   if (!sjl) { document.getElementById('calcResult').style.display = 'none'; return; }
   const odhadKwh = sjl * SJL_KOEFICIENT;
   const pouzitaCena = vlastniCena > 0 ? vlastniCena : (otePrice ? otePrice/1000 : 1.65);
-  const celkem = odhadKwh * pouzitaCena;
+  const silova = odhadKwh * pouzitaCena;
+
+  // Průměrná distribuce na kWh z historie (posledních 12 měsíců)
+  const histData = allData.length > 0 ? allData.slice(-12) : [];
+  let distribuceCelkem = 0;
+  if (histData.length > 0) {
+    const avgDistribuce = histData.reduce((s,d) => s + d.el_distribuce, 0) / histData.length;
+    const avgKwh = histData.reduce((s,d) => s + d.el_kwh, 0) / histData.length;
+    const distribNaKwh = avgKwh > 0 ? avgDistribuce / avgKwh : 0;
+    distribuceCelkem = odhadKwh * distribNaKwh;
+  }
+  const celkem = silova + distribuceCelkem;
+
   document.getElementById('calcResult').style.display = 'block';
   document.getElementById('calcResultValue').textContent = fmtCzk(celkem);
-  document.getElementById('calcResultLabel').textContent = 'Odhadovaná cena za silovou elektřinu';
+  document.getElementById('calcResultLabel').textContent = 'Odhadovaná cena elektřiny (silová + distribuce)';
   document.getElementById('calcResultDetail').textContent = 
-    `${fmt(sjl)} SJL × ${SJL_KOEFICIENT} kWh/SJL = ${fmt(odhadKwh)} kWh × ${pouzitaCena.toFixed(3).replace('.',',')} Kč/kWh = ${fmtCzk(celkem)}`;
+    `${fmt(sjl)} SJL × ${SJL_KOEFICIENT} kWh/SJL = ${fmt(odhadKwh)} kWh · Silová: ${fmtCzk(silova)} · Distribuce: ${fmtCzk(distribuceCelkem)} · Celkem: ${fmtCzk(celkem)}`;
 }
 
 function zkontrolujAlert(cena) {
