@@ -343,10 +343,12 @@ input:focus { border-color: var(--el); }
                 <strong style="font-size:0.82rem">Co je SJL?</strong><br>
                 Store Job Lines — interní metrika počtu operací zpracovaných skladem za měsíc. Čím více práce sklad odvede, tím více SJL.<br><br>
                 <strong style="font-size:0.82rem">Jak funguje koeficient?</strong><br>
-                Z dat za 13 měsíců (2025–2026) byl vypočítán průměr: každá 1 SJL odpovídá spotřebě 0,069 kWh elektřiny.<br><br>
+                Z dat za 13 měsíců (2025–2026): každá 1 SJL odpovídá spotřebě 0,069 kWh elektřiny.<br><br>
                 <strong style="font-size:0.82rem">Jak kalkulačka počítá?</strong><br>
-                SJL × 0,069 kWh = odhadovaná spotřeba<br>
-                spotřeba × OTE cena = odhadovaná cena silové elektřiny
+                SJL × 0,069 = odhad spotřeby (kWh)<br>
+                spotřeba × OTE cena = silová elektřina<br>
+                spotřeba × průměr distribuce/kWh = distribuce<br>
+                <strong>Výsledek = silová + distribuce</strong>
               </div>
             </div>
           </div>
