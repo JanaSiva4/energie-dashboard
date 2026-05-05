@@ -255,7 +255,6 @@ input:focus { border-color: var(--el); }
         <div class="trend-sub">Plná čára = náklady celkem (Kč) · Tečkovaná = spotřeba elektřiny (kWh) · Přerušovaná fialová = Ø cena el. (Kč/kWh)</div>
         <div class="chart-wrap-tall"><canvas id="chartTrend"></canvas></div>
       </div>
-
       <div class="trend-card">
         <div class="trend-header"><div class="trend-title">📈 Trendy — energetický benchmarking</div></div>
         <div class="trend-sub">Kč / kWh (Innogy) — fialová = celková · modrá = silová elektřina · oranžová = distribuce</div>
@@ -305,15 +304,16 @@ input:focus { border-color: var(--el); }
 
       <div class="pred-section">
         <div class="pred-title">⚡ Aktuální cena elektřiny na trhu</div>
-        <div class="pred-sub">Zadejte aktuální spot cenu z <a href="https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/den-dopredu" target="_blank" style="color:var(--pred)">OTE-CR.cz</a> — Base Load · aktualizujte jednou týdně</div>
+        <div class="pred-sub">Cena se načítá automaticky z <a href="https://spotovaelektrina.cz" target="_blank" style="color:var(--pred)">spotovaelektrina.cz</a> (OTE). Pokud se nepodaří, zadejte ručně z <a href="https://www.ote-cr.cz/cs/kratkodobe-trhy/elektrina/den-dopredu" target="_blank" style="color:var(--pred)">OTE-CR.cz</a> — aktualizujte jednou týdně.</div>
         <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px">
           <div class="field" style="margin:0;flex:1;max-width:200px">
             <label>Cena OTE [Kč/MWh]</label>
-            <input type="number" id="oteManual" placeholder="např. 2749" oninput="nastavOteCenu()" style="width:100%" />
+            <input type="number" id="oteManual" placeholder="načítám…" oninput="nastavOteCenu()" style="width:100%" />
           </div>
           <button class="btn-sm accent" onclick="nastavOteCenu()" style="height:44px">Nastavit</button>
+          <button class="btn-sm" onclick="loadOtePrice()" style="height:44px">↻ Aktualizovat</button>
         </div>
-        <div class="ote-status"><div class="ote-dot" id="oteDot"></div><span id="oteStatus">Zadejte cenu výše</span></div>
+        <div class="ote-status"><div class="ote-dot loading" id="oteDot"></div><span id="oteStatus">Načítám cenu…</span></div>
         <div class="price-badge">
           <div>
             <div class="price-badge-value" id="oteCena">—</div>
@@ -483,16 +483,39 @@ function backToWarehouse() {
   charts = {};
 }
 
-function loadOtePrice() {
+async function loadOtePrice() {
+  document.getElementById('oteDot').classList.add('loading');
+  document.getElementById('oteStatus').textContent = 'Načítám cenu z OTE…';
+
+  // Nejdřív zkus API spotovaelektrina.cz
+  try {
+    const res = await fetch('https://spotovaelektrina.cz/api/v1/price/get-actual-price-json');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.priceCZK && data.priceCZK > 0) {
+        otePrice = Math.round(data.priceCZK);
+        localStorage.setItem('otePrice', otePrice);
+        localStorage.setItem('otePriceDate', new Date().toLocaleDateString('cs-CZ'));
+        document.getElementById('oteManual').value = otePrice;
+        zobrazOteCenu(otePrice, 'Auto · spotovaelektrina.cz (OTE)');
+        return;
+      }
+    }
+  } catch(e) {
+    console.log('API spotovaelektrina.cz nedostupné:', e.message);
+  }
+
+  // Fallback — použij ručně uloženou hodnotu
   const ulozena = localStorage.getItem('otePrice');
   const ulozenaDate = localStorage.getItem('otePriceDate');
   if (ulozena) {
     otePrice = parseInt(ulozena);
+    document.getElementById('oteManual').value = otePrice;
     const zdroj = ulozenaDate ? 'Zadáno ručně · ' + ulozenaDate : 'Zadáno ručně';
     zobrazOteCenu(otePrice, zdroj);
   } else {
     document.getElementById('oteDot').classList.remove('loading');
-    document.getElementById('oteStatus').textContent = 'Zadejte cenu ručně výše';
+    document.getElementById('oteStatus').textContent = 'API nedostupné — zadejte cenu ručně';
   }
 }
 
@@ -511,9 +534,8 @@ function nastavOteCenu() {
 function zobrazOteCenu(cena, zdroj) {
   document.getElementById('oteCena').textContent = fmt(cena);
   document.getElementById('oteCenaKwh').textContent = (cena/1000).toFixed(3).replace('.', ',');
-  // Vypočti příští pondělí
   const dnes = new Date();
-  const denTydne = dnes.getDay(); // 0=ne, 1=po, ..., 6=so
+  const denTydne = dnes.getDay();
   const dniDoPondeli = denTydne === 0 ? 1 : (8 - denTydne);
   const pristiPondeli = new Date(dnes);
   pristiPondeli.setDate(dnes.getDate() + dniDoPondeli);
@@ -525,7 +547,7 @@ function zobrazOteCenu(cena, zdroj) {
 }
 
 const SJL_KOEFICIENT = 0.069;
-const ALERT_HRANICE = 2500;
+const ALERT_HRANICE = 3500;
 
 function vypocitej() {
   const sjl = parseFloat(document.getElementById('calcSjl').value) || 0;
@@ -534,8 +556,6 @@ function vypocitej() {
   const odhadKwh = sjl * SJL_KOEFICIENT;
   const pouzitaCena = vlastniCena > 0 ? vlastniCena : (otePrice ? otePrice/1000 : 1.65);
   const silova = odhadKwh * pouzitaCena;
-
-  // Průměrná distribuce na kWh z historie (posledních 12 měsíců)
   const histData = allData.length > 0 ? allData.slice(-12) : [];
   let distribuceCelkem = 0;
   if (histData.length > 0) {
@@ -545,11 +565,10 @@ function vypocitej() {
     distribuceCelkem = odhadKwh * distribNaKwh;
   }
   const celkem = silova + distribuceCelkem;
-
   document.getElementById('calcResult').style.display = 'block';
   document.getElementById('calcResultValue').textContent = fmtCzk(celkem);
   document.getElementById('calcResultLabel').textContent = 'Odhadovaná cena elektřiny (silová + distribuce)';
-  document.getElementById('calcResultDetail').textContent = 
+  document.getElementById('calcResultDetail').textContent =
     `${fmt(sjl)} SJL × ${SJL_KOEFICIENT} kWh/SJL = ${fmt(odhadKwh)} kWh · Silová: ${fmtCzk(silova)} · Distribuce: ${fmtCzk(distribuceCelkem)} · Celkem: ${fmtCzk(celkem)}`;
 }
 
@@ -563,7 +582,6 @@ function zkontrolujAlert(cena) {
 }
 
 function renderPredikce() {
-  // Automaticky předvyplň SJL z posledního měsíce
   if (allData.length > 0) {
     const last = allData[allData.length - 1];
     if (last.sjl && last.sjl > 0) {
@@ -574,14 +592,11 @@ function renderPredikce() {
       }
     }
   }
-
   if (allData.length < 3) {
     document.getElementById('predGrid').innerHTML = '<div class="empty-state" style="padding:20px;grid-column:1/-1"><div class="empty-icon">📊</div><div>Pro predikci potřebujete alespoň 3 měsíce historických dat.</div></div>';
     return;
   }
-
   const data2026 = allData.filter(d => d.rok === 2026);
-  // Predikce vychází z průměru posledních 2 let
   const aktRok = Math.max(...allData.map(d => d.rok));
   const zakladData = allData.filter(d => d.rok === aktRok || d.rok === aktRok - 1);
   const zakladLen = zakladData.length || 1;
@@ -591,7 +606,6 @@ function renderPredikce() {
   const avgWater = zakladData.reduce((s,d) => s + d.water_celkem, 0) / zakladLen;
   const avgTotal = avgEl + avgFsx + avgGas + avgWater;
   const rust = 1.05;
-
   document.getElementById('predGrid').innerHTML = `
     <div class="pred-month-card">
       <div class="pred-month-label">⚡ Elektřina + FSX 2027 (odhad)</div>
@@ -614,19 +628,16 @@ function renderPredikce() {
       <div class="pred-month-sub">Ročně · předpokládaný nárůst +5%</div>
     </div>
   `;
-
   const values2026 = MONTHS.map((m,i) => {
     const d = data2026.find(x => x.mesic === i+1);
     return d ? d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem : null;
   });
-  // Predikce podle sezónního vzoru — pro každý měsíc vezmi průměr z posledních 2 let × 1.05
   const valuesPred = MONTHS.map((_, mi) => {
     const mesicData = zakladData.filter(d => d.mesic === mi + 1);
     if (mesicData.length === 0) return avgTotal * rust;
     const mesicAvg = mesicData.reduce((s,d) => s + d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem, 0) / mesicData.length;
     return mesicAvg * rust;
   });
-
   if (charts['chartPredikce']) charts['chartPredikce'].destroy();
   const ctx = document.getElementById('chartPredikce');
   if (ctx) {
@@ -704,7 +715,6 @@ function renderSummaryCards() {
   if (!allData.length) return;
   const last = allData[allData.length - 1];
   const label = `${MONTHS[last.mesic-1]} ${last.rok}`;
-  // Sloučená karta Elektřina + FSX
   const elTotalKwh = last.el_kwh + last.fsx_kwh;
   const elTotalCzk = last.el_celkem + last.fsx_celkem;
   document.getElementById('sum-el-total-kwh').textContent = fmt(elTotalKwh) + ' kWh';
@@ -717,15 +727,12 @@ function renderSummaryCards() {
   document.getElementById('sum-gas-czk').textContent = fmtCzk(last.gas_celkem) + ' · ' + label;
   document.getElementById('sum-water-m3').textContent = fmt(last.water_m3) + ' m³';
   document.getElementById('sum-water-czk').textContent = fmtCzk(last.water_celkem) + ' · ' + label;
-
-  // YTD — součet od začátku aktuálního roku
   const aktualniRok = last.rok;
   const ytdData = allData.filter(d => d.rok === aktualniRok);
   const ytdEl = ytdData.reduce((s, d) => s + d.el_celkem, 0);
   const ytdFsx = ytdData.reduce((s, d) => s + d.fsx_celkem, 0);
   const ytdGas = ytdData.reduce((s, d) => s + d.gas_celkem, 0);
   const ytdWater = ytdData.reduce((s, d) => s + d.water_celkem, 0);
-  const ytdLabel = 'YTD ' + aktualniRok + ': ' + fmtCzk(ytdEl + ytdFsx + ytdGas + ytdWater);
   document.getElementById('ytd-el').textContent = 'YTD ' + aktualniRok + ': ' + fmtCzk(ytdEl + ytdFsx) + ' (el + FSX)';
   document.getElementById('ytd-fsx').textContent = '';
   document.getElementById('ytd-gas').textContent = 'YTD ' + aktualniRok + ': ' + fmtCzk(ytdGas);
@@ -738,7 +745,6 @@ function renderAvgPriceTrend() {
   if (charts['chartAvgPriceTrend']) charts['chartAvgPriceTrend'].destroy();
   const ctx = document.getElementById('chartAvgPriceTrend');
   if (!ctx) return;
-  // Výpočet silové a distribuční ceny za kWh
   const silovaNaKwh = allData.map(d => d.el_kwh > 0 ? d.el_silova / d.el_kwh : null);
   const distribNaKwh = allData.map(d => d.el_kwh > 0 ? d.el_distribuce / d.el_kwh : null);
   charts['chartAvgPriceTrend'] = new Chart(ctx, {
@@ -746,47 +752,14 @@ function renderAvgPriceTrend() {
     data: {
       labels: labels,
       datasets: [
-        {
-          label: 'Ø Celková cena (Kč/kWh)',
-          data: allData.map(d => d.el_avg_price),
-          borderColor: '#7c3aed',
-          backgroundColor: 'transparent',
-          borderWidth: 3,
-          pointRadius: 4,
-          tension: 0.3,
-          fill: false,
-          spanGaps: false
-        },
-        {
-          label: 'Silová elektřina (Kč/kWh)',
-          data: silovaNaKwh,
-          borderColor: '#2563eb',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          borderDash: [5, 3],
-          pointRadius: 3,
-          tension: 0.3,
-          fill: false,
-          spanGaps: false
-        },
-        {
-          label: 'Distribuce (Kč/kWh)',
-          data: distribNaKwh,
-          borderColor: '#d97706',
-          backgroundColor: 'transparent',
-          borderWidth: 2,
-          borderDash: [5, 3],
-          pointRadius: 3,
-          tension: 0.3,
-          fill: false,
-          spanGaps: false
-        }
+        { label: 'Ø Celková cena (Kč/kWh)', data: allData.map(d => d.el_avg_price), borderColor: '#7c3aed', backgroundColor: 'transparent', borderWidth: 3, pointRadius: 4, tension: 0.3, fill: false, spanGaps: false },
+        { label: 'Silová elektřina (Kč/kWh)', data: silovaNaKwh, borderColor: '#2563eb', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 3], pointRadius: 3, tension: 0.3, fill: false, spanGaps: false },
+        { label: 'Distribuce (Kč/kWh)', data: distribNaKwh, borderColor: '#d97706', backgroundColor: 'transparent', borderWidth: 2, borderDash: [5, 3], pointRadius: 3, tension: 0.3, fill: false, spanGaps: false }
       ]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, labels: { font: { family: 'Epilogue', size: 11 }, boxWidth: 12 } } },
       scales: {
         x: { grid: { display: false }, ticks: { font: { family: 'Epilogue', size: 11 } } },
         y: { grid: { color: '#e0dbd3' }, ticks: { font: { family: 'Epilogue', size: 10 }, callback: v => v.toFixed(2).replace('.',',') + ' Kč' } }
@@ -821,7 +794,6 @@ function renderTrend() {
           borderColor: yearColors[yi % yearColors.length], backgroundColor: 'transparent', borderWidth: 1.5,
           borderDash: [3, 3], pointRadius: 2, tension: 0.4, fill: false, yAxisID: 'yRight', spanGaps: false,
         })),
-
       ]
     },
     options: {
