@@ -105,6 +105,9 @@ input:focus { border-color: var(--el); }
 .pred-section { background: var(--surface); border-radius: var(--radius); padding: 24px; border: 1px solid var(--border); margin-bottom: 20px; }
 .pred-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 4px; color: var(--pred); }
 .pred-sub { font-size: 0.78rem; color: var(--muted); margin-bottom: 20px; }
+.price-badge { display: inline-flex; align-items: center; gap: 8px; background: var(--pred-light); border: 1px solid #c4b5fd; border-radius: 10px; padding: 12px 20px; margin-bottom: 20px; flex-wrap: wrap; }
+.price-badge-value { font-size: 1.4rem; font-weight: 700; color: var(--pred); }
+.price-badge-label { font-size: 0.8rem; color: var(--muted); }
 .calc-result { background: var(--pred-light); border: 1px solid #c4b5fd; border-radius: 12px; padding: 20px; margin-top: 16px; text-align: center; display: none; }
 .calc-result-value { font-size: 2rem; font-weight: 700; color: var(--pred); }
 .calc-result-label { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
@@ -113,6 +116,9 @@ input:focus { border-color: var(--el); }
 .pred-month-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-bottom: 4px; }
 .pred-month-value { font-size: 1.2rem; font-weight: 600; color: var(--text); }
 .pred-month-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+.ote-status { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); margin-bottom: 16px; }
+.ote-dot { width: 8px; height: 8px; border-radius: 50%; background: #059669; }
+.ote-dot.loading { background: #d97706; }
 
 .tooltip-wrap { position: relative; display: inline-flex; align-items: center; }
 .tooltip-icon { width: 18px; height: 18px; border-radius: 50%; background: var(--border); color: var(--muted); font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; margin-left: 8px; flex-shrink: 0; }
@@ -196,28 +202,6 @@ input:focus { border-color: var(--el); }
 
     <!-- PŘEHLED -->
     <div id="tab-overview">
-
-      <!-- Alert — zobrazí se automaticky když API cena překročí hranici -->
-      <div id="cenovyAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px 20px;margin-bottom:20px;align-items:center;gap:12px">
-        <div style="font-size:1.5rem">🚨</div>
-        <div>
-          <div style="font-weight:600;color:#dc2626;font-size:0.95rem">Vysoká cena elektřiny na trhu!</div>
-          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální spotová cena elektřiny překročila hranici 3 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
-        </div>
-      </div>
-
-      <!-- Záložní políčko pro ruční zadání — zobrazí se jen když API selže -->
-      <div id="apiFallback" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:12px;padding:16px 20px;margin-bottom:20px">
-        <div style="font-weight:600;color:#92400e;font-size:0.9rem;margin-bottom:8px">⚠️ API nedostupné — zadejte cenu ručně pro alert a kalkulačku</div>
-        <div style="display:flex;gap:12px;align-items:flex-end">
-          <div style="flex:1;max-width:200px">
-            <label style="font-size:0.78rem;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px">Cena OTE [Kč/MWh]</label>
-            <input type="number" id="oteManual" placeholder="např. 2749" oninput="nastavCenuRucne()" style="width:100%;padding:10px 14px;border:1px solid #fcd34d;border-radius:8px;background:#fffbeb;font-family:'Epilogue',sans-serif" />
-          </div>
-          <button class="btn-sm" onclick="nastavCenuRucne()" style="height:42px;border-color:#fcd34d">Nastavit</button>
-        </div>
-      </div>
-
       <div class="cards">
         <div class="card el">
           <div class="card-header"><div class="card-icon">⚡</div><div class="card-label">Elektřina celkem (Innogy + FSX)</div></div>
@@ -309,6 +293,52 @@ input:focus { border-color: var(--el); }
     <!-- PREDIKCE -->
     <div id="tab-prediction" style="display:none">
 
+      <!-- Alert -->
+      <div id="cenovyAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px 20px;margin-bottom:20px;align-items:center;gap:12px">
+        <div style="font-size:1.5rem">🚨</div>
+        <div>
+          <div style="font-weight:600;color:#dc2626;font-size:0.95rem">Vysoká cena elektřiny na trhu!</div>
+          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální spotová cena elektřiny překročila hranici 3 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
+        </div>
+      </div>
+
+      <!-- Aktuální spotová cena — načítá se automaticky z API -->
+      <div class="pred-section">
+        <div class="pred-title">⚡ Aktuální spotová cena elektřiny</div>
+        <div class="pred-sub">Načítá se automaticky ze spotovaelektrina.cz (OTE) při každém otevření dashboardu.</div>
+        <div class="ote-status"><div class="ote-dot loading" id="oteDot"></div><span id="oteStatus">Načítám cenu…</span></div>
+        <div class="price-badge">
+          <div>
+            <div class="price-badge-value" id="oteCena">—</div>
+            <div class="price-badge-label">Kč / MWh</div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;max-width:120px">Dnešní spot cena elektřiny na burze OTE</div>
+          </div>
+          <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
+            <div class="price-badge-value" id="oteCenaKwh">—</div>
+            <div class="price-badge-label">Kč / kWh</div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;max-width:120px">Přepočet pro srovnání s cenou na faktuře</div>
+          </div>
+          <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
+            <div style="font-size:0.78rem;color:var(--muted);margin-bottom:4px">Alert hranice</div>
+            <div style="font-size:0.95rem;font-weight:600;color:var(--text)">3 500 Kč/MWh</div>
+            <div style="font-size:0.72rem;color:var(--muted)">Nad touto hranicí = upozornění</div>
+          </div>
+        </div>
+
+        <!-- Záložní políčko — zobrazí se jen při selhání API -->
+        <div id="apiFallback" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;margin-top:12px">
+          <div style="font-weight:600;color:#92400e;font-size:0.85rem;margin-bottom:8px">⚠️ API nedostupné — zadejte cenu ručně pro správnou funkci alertu</div>
+          <div style="display:flex;gap:12px;align-items:flex-end">
+            <div style="flex:1;max-width:200px">
+              <label style="font-size:0.75rem;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px">Cena OTE [Kč/MWh]</label>
+              <input type="number" id="oteManual" placeholder="např. 2749" oninput="nastavCenuRucne()" style="width:100%;padding:10px 14px;border:1px solid #fcd34d;border-radius:8px;background:#fffbeb;font-family:'Epilogue',sans-serif;font-size:0.9rem" />
+            </div>
+            <button class="btn-sm" onclick="nastavCenuRucne()" style="height:42px;border-color:#fcd34d">Nastavit</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kalkulačka SJL -->
       <div class="pred-section">
         <div class="pred-title" style="display:flex;align-items:center">
           🔢 Kalkulačka nákladů podle SJL
@@ -322,12 +352,12 @@ input:focus { border-color: var(--el); }
                 spotřeba × průměrná silová cena z faktur = silová elektřina<br>
                 spotřeba × průměrná distribuce z faktur = distribuce<br>
                 <strong>Výsledek = silová + distribuce</strong><br><br>
-                <span style="color:#c4b5fd;font-size:0.72rem">Ceny vychází z průměru posledních 12 měsíců vašich faktur uložených v Sheets — ne z tržní ceny.</span>
+                <span style="color:#c4b5fd;font-size:0.72rem">Ceny vychází z průměru posledních 12 měsíců vašich faktur — ne z tržní ceny.</span>
               </div>
             </div>
           </div>
         </div>
-        <div class="pred-sub">Koeficient: 0,069 kWh/SJL (průměr 2025–2026). Ceny se počítají automaticky z průměru vašich faktur.</div>
+        <div class="pred-sub">Koeficient: 0,069 kWh/SJL (průměr 2025–2026). Ceny se počítají automaticky z průměru vašich faktur v Sheets.</div>
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:0.78rem;color:var(--muted);line-height:1.6">
           💡 <strong style="color:var(--text)">Jak kalkulačka počítá cenu?</strong><br>
           Vychází výhradně z vašich reálných faktur v Sheets. Průměrná cena silové elektřiny a distribuce
@@ -352,6 +382,7 @@ input:focus { border-color: var(--el); }
         </div>
       </div>
 
+      <!-- Predikce 2027 -->
       <div class="pred-section">
         <div class="pred-title">📅 Predikce roku 2027</div>
         <div class="pred-sub">Odhad na základě historických dat a průměrného růstu +5%.</div>
@@ -457,22 +488,32 @@ async function loadOtePrice() {
     if (d && d.price && d.price > 0) {
       otePrice = d.price;
       localStorage.setItem('otePrice', otePrice);
-      zkontrolujAlert(otePrice);
+      zobrazCenu(otePrice, 'spotovaelektrina.cz (OTE)');
       document.getElementById('apiFallback').style.display = 'none';
       return;
     }
   } catch(e) {
     console.log('OTE API chyba:', e.message);
   }
-  // Fallback — zkus localStorage
+  // Fallback localStorage
   const ulozena = localStorage.getItem('otePrice');
   if (ulozena) {
     otePrice = parseInt(ulozena);
-    zkontrolujAlert(otePrice);
+    zobrazCenu(otePrice, 'Naposledy uložená cena');
     document.getElementById('apiFallback').style.display = 'none';
   } else {
+    document.getElementById('oteDot').classList.remove('loading');
+    document.getElementById('oteStatus').textContent = 'API nedostupné';
     document.getElementById('apiFallback').style.display = 'block';
   }
+}
+
+function zobrazCenu(cena, zdroj) {
+  document.getElementById('oteCena').textContent = fmt(cena);
+  document.getElementById('oteCenaKwh').textContent = (cena/1000).toFixed(3).replace('.', ',');
+  document.getElementById('oteStatus').textContent = zdroj + ' · ' + new Date().toLocaleDateString('cs-CZ');
+  document.getElementById('oteDot').classList.remove('loading');
+  zkontrolujAlert(cena);
 }
 
 function nastavCenuRucne() {
@@ -480,15 +521,16 @@ function nastavCenuRucne() {
   if (!val || val <= 0) return;
   otePrice = val;
   localStorage.setItem('otePrice', val);
-  zkontrolujAlert(val);
+  zobrazCenu(val, 'Zadáno ručně');
+  document.getElementById('apiFallback').style.display = 'none';
 }
 
 function zkontrolujAlert(cena) {
-  const alert = document.getElementById('cenovyAlert');
+  const alertEl = document.getElementById('cenovyAlert');
   if (cena && cena > ALERT_HRANICE) {
-    alert.style.display = 'flex';
+    alertEl.style.display = 'flex';
   } else {
-    alert.style.display = 'none';
+    alertEl.style.display = 'none';
   }
 }
 
