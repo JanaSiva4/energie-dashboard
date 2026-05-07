@@ -406,28 +406,24 @@ async function loadOtePrice() {
     const d = await res.json();
     if (d && d.price && d.price > 0) {
       otePrice = d.price;
-      localStorage.setItem('otePrice', otePrice);
-      zobrazCenu(otePrice, 'spotovaelektrina.cz');
+      const zdroj = d.zdroj === 'api'
+        ? 'spotovaelektrina.cz · ' + (d.datum || '')
+        : 'Naposledy uložená cena · ' + (d.datum || '');
+      zobrazCenu(otePrice, zdroj);
       document.getElementById('apiFallback').style.display = 'none';
       return;
     }
   } catch(e) { console.log('API chyba:', e.message); }
-  const ulozena = localStorage.getItem('otePrice');
-  if (ulozena) {
-    otePrice = parseInt(ulozena);
-    zobrazCenu(otePrice, 'Naposledy uložená cena');
-    document.getElementById('apiFallback').style.display = 'none';
-  } else {
-    document.getElementById('oteDot').classList.remove('loading');
-    document.getElementById('oteStatus').textContent = 'API nedostupné';
-    document.getElementById('apiFallback').style.display = 'block';
-  }
+  // Úplný fallback — API ani Sheets nefunguje
+  document.getElementById('oteDot').classList.remove('loading');
+  document.getElementById('oteStatus').textContent = 'Cenu se nepodařilo načíst';
+  document.getElementById('apiFallback').style.display = 'block';
 }
 
 function zobrazCenu(cena, zdroj) {
   document.getElementById('oteCena').textContent = fmt(cena);
   document.getElementById('oteCenaKwh').textContent = (cena/1000).toFixed(3).replace('.', ',');
-  document.getElementById('oteStatus').textContent = zdroj + ' · ' + new Date().toLocaleDateString('cs-CZ');
+  document.getElementById('oteStatus').textContent = zdroj;
   document.getElementById('oteDot').classList.remove('loading');
   zkontrolujAlert(cena);
 }
