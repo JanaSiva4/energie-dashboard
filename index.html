@@ -204,7 +204,6 @@ input:focus { border-color: var(--el); }
         <div class="trend-sub">Kč / kWh (Innogy) — fialová = celková · modrá = silová elektřina · oranžová = distribuce</div>
         <div class="chart-wrap-tall"><canvas id="chartAvgPriceTrend"></canvas></div>
       </div>
-
       <!-- POZNÁMKY -->
       <div class="trend-card">
         <div class="trend-header"><div class="trend-title">📝 Poznámky</div></div>
@@ -245,7 +244,6 @@ input:focus { border-color: var(--el); }
 
     <!-- PREDIKCE -->
     <div id="tab-prediction" style="display:none">
-
       <div id="cenovyAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px 20px;margin-bottom:20px;align-items:center;gap:12px">
         <div style="font-size:1.5rem">🚨</div>
         <div>
@@ -253,7 +251,6 @@ input:focus { border-color: var(--el); }
           <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální spotová cena elektřiny překročila hranici 3 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
         </div>
       </div>
-
       <div class="pred-section">
         <div class="pred-title">⚡ Aktuální spotová cena elektřiny</div>
         <div class="pred-sub">Načítá se automaticky při každém otevření dashboardu · zdroj: spotovaelektrina.cz</div>
@@ -286,7 +283,6 @@ input:focus { border-color: var(--el); }
           </div>
         </div>
       </div>
-
       <div class="pred-section">
         <div class="pred-title" style="display:flex;align-items:center">
           🔢 Kalkulačka nákladů podle SJL
@@ -316,7 +312,6 @@ input:focus { border-color: var(--el); }
           <div style="font-size:0.75rem;color:var(--muted);margin-top:8px" id="calcResultDetail"></div>
         </div>
       </div>
-
       <div class="pred-section">
         <div class="pred-title">📅 Predikce roku 2027</div>
         <div class="pred-sub">Odhad na základě historických dat a průměrného růstu +5%.</div>
@@ -329,7 +324,6 @@ input:focus { border-color: var(--el); }
           <div class="chart-wrap-tall"><canvas id="chartPredikce"></canvas></div>
         </div>
       </div>
-
     </div>
 
     <!-- ZADÁNÍ DAT -->
@@ -395,7 +389,7 @@ async function nactiPoznamky() {
     const res = await fetch(SCRIPT_URL + '?action=get_notes&sheet=' + encodeURIComponent(currentWarehouse));
     const d = await res.json();
     document.getElementById('notesText').value = d.notes || '';
-    document.getElementById('notesStatus').textContent = d.notes ? 'Naposledy uloženo · sdílené poznámky' : 'Zatím žádné poznámky';
+    document.getElementById('notesStatus').textContent = d.notes ? 'Naposledy uloženo · sdílené poznámky' : 'Zatím žádné poznámky · začněte psát';
   } catch(e) {
     document.getElementById('notesStatus').textContent = 'Poznámky se nepodařilo načíst';
   }
@@ -450,7 +444,6 @@ async function loadOtePrice() {
       return;
     }
   } catch(e) { console.log('API chyba:', e.message); }
-  // Úplný fallback — API ani Sheets nefunguje
   document.getElementById('oteDot').classList.remove('loading');
   document.getElementById('oteStatus').textContent = 'Cenu se nepodařilo načíst';
   document.getElementById('apiFallback').style.display = 'block';
@@ -468,7 +461,6 @@ function nastavCenuRucne() {
   const val = parseFloat(document.getElementById('oteManual').value);
   if (!val || val <= 0) return;
   otePrice = val;
-  localStorage.setItem('otePrice', val);
   zobrazCenu(val, 'Zadáno ručně');
   document.getElementById('apiFallback').style.display = 'none';
 }
@@ -539,8 +531,6 @@ function renderPredikce() {
   const avgWater = zakladData.reduce((s,d) => s + d.water_celkem, 0) / zakladLen;
   const avgTotal = avgEl + avgFsx + avgGas + avgWater;
   const rust = 1.05;
-
-  // Skutečnost za předchozí rok
   const predRok = aktRok - 1;
   const predRokData = allData.filter(d => d.rok === predRok);
   const skutEl = predRokData.reduce((s,d) => s + d.el_celkem + d.fsx_celkem, 0);
@@ -548,7 +538,6 @@ function renderPredikce() {
   const skutWater = predRokData.reduce((s,d) => s + d.water_celkem, 0);
   const skutTotal = skutEl + skutGas + skutWater;
   const skutLabel = predRokData.length === 12 ? `${predRok} skutečnost` : `${predRok} skutečnost (${predRokData.length}/12 měs.)`;
-
   document.getElementById('predGrid').innerHTML = `
     <div class="pred-month-card">
       <div class="pred-month-label">⚡ Elektřina + FSX 2027 (odhad)</div>
@@ -575,7 +564,6 @@ function renderPredikce() {
       ${skutTotal > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #c4b5fd;font-size:0.72rem;color:var(--pred)">${skutLabel}: <strong>${fmtCzk(skutTotal)}</strong></div>` : ''}
     </div>
   `;
-
   const values2026 = MONTHS.map((m,i) => { const d = data2026.find(x => x.mesic === i+1); return d ? d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem : null; });
   const valuesPred = MONTHS.map((_, mi) => {
     const mesicData = zakladData.filter(d => d.mesic === mi + 1);
