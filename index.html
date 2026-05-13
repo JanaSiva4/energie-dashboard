@@ -204,6 +204,16 @@ input:focus { border-color: var(--el); }
         <div class="trend-sub">Kč / kWh (Innogy) — fialová = celková · modrá = silová elektřina · oranžová = distribuce</div>
         <div class="chart-wrap-tall"><canvas id="chartAvgPriceTrend"></canvas></div>
       </div>
+
+      <!-- POZNÁMKY -->
+      <div class="trend-card">
+        <div class="trend-header"><div class="trend-title">📝 Poznámky</div></div>
+        <div class="trend-sub" id="notesStatus">Načítám poznámky…</div>
+        <textarea id="notesText" placeholder="Zde pište poznámky ke skladu…" style="width:100%;min-height:120px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Epilogue',sans-serif;font-size:0.9rem;resize:vertical;outline:none;transition:border-color 0.2s" onfocus="this.style.borderColor='var(--el)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px">
+          <button class="btn-sm accent" onclick="ulozPoznamky()">💾 Uložit poznámky</button>
+        </div>
+      </div>
     </div>
 
     <!-- GRAFY -->
@@ -375,10 +385,38 @@ input:focus { border-color: var(--el); }
 </div>
 
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzGV-vnAWMloGczThHXmch7JmgYDNe2WpPzeDeVvGPgcyeRpCEzi4dQfq7IsZWNLt7wg/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzfRP2cvMrwjbsCgQPzfbQsVABB68OYdpTPajGRT4hbhBbVWoGPJIJJTfMy6PbbhfTwCQ/exec';
 const MONTHS = ['Led','Úno','Bře','Dub','Kvě','Čer','Čvc','Srp','Zář','Říj','Lis','Pro'];
 const ALERT_HRANICE = 3500;
 let allData = [], charts = {}, currentWarehouse = '', otePrice = null;
+
+async function nactiPoznamky() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=get_notes&sheet=' + encodeURIComponent(currentWarehouse));
+    const d = await res.json();
+    document.getElementById('notesText').value = d.notes || '';
+    document.getElementById('notesStatus').textContent = d.notes ? 'Naposledy uloženo · sdílené poznámky' : 'Zatím žádné poznámky';
+  } catch(e) {
+    document.getElementById('notesStatus').textContent = 'Poznámky se nepodařilo načíst';
+  }
+}
+
+async function ulozPoznamky() {
+  const notes = document.getElementById('notesText').value;
+  document.getElementById('notesStatus').textContent = 'Ukládám…';
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'save_notes', sheet: currentWarehouse, notes })
+    });
+    document.getElementById('notesStatus').textContent = 'Uloženo · ' + new Date().toLocaleDateString('cs-CZ');
+    showToast('✓ Poznámky uloženy!');
+  } catch(e) {
+    document.getElementById('notesStatus').textContent = 'Chyba uložení';
+    showToast('Chyba uložení poznámek', true);
+  }
+}
 
 function selectWarehouse(name) {
   currentWarehouse = name;
@@ -390,6 +428,7 @@ function selectWarehouse(name) {
   document.getElementById('entryYear').value = now.getFullYear();
   loadData();
   loadOtePrice();
+  nactiPoznamky();
 }
 
 function backToWarehouse() {
