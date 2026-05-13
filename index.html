@@ -405,11 +405,8 @@ async function ulozPoznamky() {
   const notes = document.getElementById('notesText').value;
   document.getElementById('notesStatus').textContent = 'Ukládám…';
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST', mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save_notes', sheet: currentWarehouse, notes })
-    });
+    const url = SCRIPT_URL + '?action=save_notes&sheet=' + encodeURIComponent(currentWarehouse) + '&notes=' + encodeURIComponent(notes);
+    await fetch(url);
     document.getElementById('notesStatus').textContent = 'Uloženo · ' + new Date().toLocaleDateString('cs-CZ');
     showToast('✓ Poznámky uloženy!');
   } catch(e) {
