@@ -248,18 +248,21 @@ input:focus { border-color: var(--el); }
         <div style="font-size:1.5rem">🚨</div>
         <div>
           <div style="font-weight:600;color:#dc2626;font-size:0.95rem">Vysoká cena elektřiny na trhu!</div>
-          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Aktuální spotová cena elektřiny překročila hranici 3 500 Kč/MWh — zvažte zajištění ceny nebo odložení nákupu energie.</div>
+          <div style="font-size:0.82rem;color:#b91c1c;margin-top:2px">Ruční cena elektřiny překročila hranici 3 500 Kč/MWh.</div>
         </div>
       </div>
       <div class="pred-section">
-        <div class="pred-title">⚡ Aktuální spotová cena elektřiny</div>
-        <div class="pred-sub">Načítá se automaticky při každém otevření dashboardu · zdroj: spotovaelektrina.cz</div>
-        <div class="ote-status"><div class="ote-dot loading" id="oteDot"></div><span id="oteStatus">Načítám cenu…</span></div>
+        <div class="pred-title">⚡ Ruční cena elektřiny</div>
+        <div class="pred-sub">Automatická spotová cena je dočasně vypnutá. Zadejte cenu ručně, pokud ji chcete použít pro alert a orientační přepočet.</div>
+        <div class="form-grid" style="margin-bottom:12px">
+          <div class="field"><label>Cena [Kč/MWh]</label><input type="number" id="oteManual" placeholder="např. 2749" step="0.01" oninput="nastavCenuRucne()" /></div>
+        </div>
+        <div class="ote-status"><div class="ote-dot" id="oteDot"></div><span id="oteStatus">Čekám na ruční zadání ceny</span></div>
         <div class="price-badge">
           <div>
             <div class="price-badge-value" id="oteCena">—</div>
             <div class="price-badge-label">Kč / MWh</div>
-            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;max-width:120px">Dnešní spotová cena elektřiny</div>
+            <div style="font-size:0.7rem;color:var(--muted);margin-top:4px;max-width:120px">Ručně zadaná cena elektřiny</div>
           </div>
           <div style="margin-left:20px;border-left:1px solid #c4b5fd;padding-left:20px">
             <div class="price-badge-value" id="oteCenaKwh">—</div>
@@ -272,16 +275,7 @@ input:focus { border-color: var(--el); }
             <div style="font-size:0.72rem;color:var(--muted)">Nad touto hranicí = upozornění</div>
           </div>
         </div>
-        <div id="apiFallback" style="display:none;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:14px 16px;margin-top:12px">
-          <div style="font-weight:600;color:#92400e;font-size:0.85rem;margin-bottom:8px">⚠️ API nedostupné — zadejte cenu ručně pro správnou funkci alertu</div>
-          <div style="display:flex;gap:12px;align-items:flex-end">
-            <div style="flex:1;max-width:200px">
-              <label style="font-size:0.75rem;color:#92400e;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px">Cena [Kč/MWh]</label>
-              <input type="number" id="oteManual" placeholder="např. 2749" oninput="nastavCenuRucne()" style="width:100%;padding:10px 14px;border:1px solid #fcd34d;border-radius:8px;background:#fffbeb;font-family:'Epilogue',sans-serif;font-size:0.9rem" />
-            </div>
-            <button class="btn-sm" onclick="nastavCenuRucne()" style="height:42px;border-color:#fcd34d">Nastavit</button>
-          </div>
-        </div>
+        <div id="apiFallback" style="display:none"></div>
       </div>
       <div class="pred-section">
         <div class="pred-title" style="display:flex;align-items:center">
@@ -313,14 +307,14 @@ input:focus { border-color: var(--el); }
         </div>
       </div>
       <div class="pred-section">
-        <div class="pred-title">📅 Predikce roku 2027</div>
-        <div class="pred-sub">Odhad na základě historických dat a průměrného růstu +5%.</div>
+        <div class="pred-title">📅 Odhad roku 2026</div>
+        <div class="pred-sub">Sem zadejte vlastní měsíční odhady nákladů pro rok 2026. Graf pak ukáže realitu vs. odhad.</div>
         <div class="pred-grid" id="predGrid">
           <div class="empty-state" style="padding:20px"><div>Načítám historická data…</div></div>
         </div>
         <div class="chart-card" style="margin-top:20px">
-          <div class="chart-title">Predikce nákladů 2027 vs. skutečnost 2026</div>
-          <div class="chart-sub">Modrá = skutečnost 2026 · Fialová = predikce 2027</div>
+          <div class="chart-title">Náklady 2026: realita vs. odhad</div>
+          <div class="chart-sub">Modrá = skutečnost 2026 · Fialová = ruční odhad 2026</div>
           <div class="chart-wrap-tall"><canvas id="chartPredikce"></canvas></div>
         </div>
       </div>
@@ -438,22 +432,17 @@ function backToWarehouse() {
 }
 
 async function loadOtePrice() {
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=ote');
-    const d = await res.json();
-    if (d && d.price && d.price > 0) {
-      otePrice = d.price;
-      const zdroj = d.zdroj === 'api'
-        ? 'spotovaelektrina.cz · ' + (d.datum || '')
-        : 'Naposledy uložená cena · ' + (d.datum || '');
-      zobrazCenu(otePrice, zdroj);
-      document.getElementById('apiFallback').style.display = 'none';
-      return;
-    }
-  } catch(e) { console.log('API chyba:', e.message); }
-  document.getElementById('oteDot').classList.remove('loading');
-  document.getElementById('oteStatus').textContent = 'Cenu se nepodařilo načíst';
-  document.getElementById('apiFallback').style.display = 'block';
+  otePrice = null;
+  const dot = document.getElementById('oteDot');
+  const status = document.getElementById('oteStatus');
+  if (dot) dot.classList.remove('loading');
+  if (status) status.textContent = 'Čekám na ruční zadání ceny';
+  const saved = localStorage.getItem('manualOtePrice');
+  if (saved && parseFloat(saved) > 0) {
+    const input = document.getElementById('oteManual');
+    if (input) input.value = saved;
+    nastavCenuRucne();
+  }
 }
 
 function zobrazCenu(cena, zdroj) {
@@ -465,11 +454,20 @@ function zobrazCenu(cena, zdroj) {
 }
 
 function nastavCenuRucne() {
-  const val = parseFloat(document.getElementById('oteManual').value);
-  if (!val || val <= 0) return;
+  const input = document.getElementById('oteManual');
+  const val = input ? parseFloat(input.value) : 0;
+  if (!val || val <= 0) {
+    otePrice = null;
+    localStorage.removeItem('manualOtePrice');
+    document.getElementById('oteCena').textContent = '—';
+    document.getElementById('oteCenaKwh').textContent = '—';
+    document.getElementById('oteStatus').textContent = 'Čekám na ruční zadání ceny';
+    zkontrolujAlert(null);
+    return;
+  }
   otePrice = val;
+  localStorage.setItem('manualOtePrice', String(val));
   zobrazCenu(val, 'Zadáno ručně');
-  document.getElementById('apiFallback').style.display = 'none';
 }
 
 function zkontrolujAlert(cena) {
@@ -516,6 +514,26 @@ function vypocitej() {
     `${fmt(sjl)} SJL × ${SJL_KOEFICIENT} kWh/SJL = ${fmt(odhadKwh)} kWh · Silová: ${fmtCzk(silova)} · Distribuce: ${fmtCzk(distribuce)} · Celkem: ${fmtCzk(celkem)}`;
 }
 
+function getOdhad2026Key() {
+  return 'odhad2026:' + (currentWarehouse || 'default');
+}
+
+function loadOdhad2026() {
+  try { return JSON.parse(localStorage.getItem(getOdhad2026Key()) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function saveOdhad2026() {
+  const odhady = {};
+  MONTHS.forEach((_, i) => {
+    const input = document.getElementById('odhad2026_' + (i + 1));
+    const val = input ? parseFloat(input.value) : 0;
+    if (val > 0) odhady[i + 1] = val;
+  });
+  localStorage.setItem(getOdhad2026Key(), JSON.stringify(odhady));
+  renderPredikce();
+}
+
 function renderPredikce() {
   if (allData.length > 0) {
     const last = allData[allData.length - 1];
@@ -524,67 +542,57 @@ function renderPredikce() {
       if (sjlInput && !sjlInput.value) { sjlInput.value = last.sjl; vypocitej(); }
     }
   }
-  if (allData.length < 3) {
-    document.getElementById('predGrid').innerHTML = '<div class="empty-state" style="padding:20px;grid-column:1/-1"><div class="empty-icon">📊</div><div>Pro predikci potřebujete alespoň 3 měsíce historických dat.</div></div>';
-    return;
-  }
+
   const data2026 = allData.filter(d => d.rok === 2026);
-  const aktRok = Math.max(...allData.map(d => d.rok));
-  const zakladData = allData.filter(d => d.rok === aktRok || d.rok === aktRok - 1);
-  const zakladLen = zakladData.length || 1;
-  const avgEl = zakladData.reduce((s,d) => s + d.el_celkem, 0) / zakladLen;
-  const avgFsx = zakladData.reduce((s,d) => s + d.fsx_celkem, 0) / zakladLen;
-  const avgGas = zakladData.reduce((s,d) => s + d.gas_celkem, 0) / zakladLen;
-  const avgWater = zakladData.reduce((s,d) => s + d.water_celkem, 0) / zakladLen;
-  const avgTotal = avgEl + avgFsx + avgGas + avgWater;
-  const rust = 1.05;
-  const predRok = aktRok - 1;
-  const predRokData = allData.filter(d => d.rok === predRok);
-  const skutEl = predRokData.reduce((s,d) => s + d.el_celkem + d.fsx_celkem, 0);
-  const skutGas = predRokData.reduce((s,d) => s + d.gas_celkem, 0);
-  const skutWater = predRokData.reduce((s,d) => s + d.water_celkem, 0);
-  const skutTotal = skutEl + skutGas + skutWater;
-  const skutLabel = predRokData.length === 12 ? `${predRok} skutečnost` : `${predRok} skutečnost (${predRokData.length}/12 měs.)`;
+  const odhady = loadOdhad2026();
+  const valuesReal = MONTHS.map((_, i) => {
+    const d = data2026.find(x => x.mesic === i + 1);
+    return d ? d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem : null;
+  });
+  const valuesOdhad = MONTHS.map((_, i) => odhady[i + 1] ? odhady[i + 1] : null);
+  const realTotal = valuesReal.reduce((s, v) => s + (v || 0), 0);
+  const odhadTotal = valuesOdhad.reduce((s, v) => s + (v || 0), 0);
+  const realCount = valuesReal.filter(v => v !== null).length;
+  const odhadCount = valuesOdhad.filter(v => v !== null).length;
+  const diff = realTotal && odhadTotal ? realTotal - odhadTotal : 0;
+
+  const inputsHtml = MONTHS.map((month, i) => `
+    <div class="field">
+      <label>${month}</label>
+      <input type="number" id="odhad2026_${i + 1}" placeholder="0 Kč" step="1" value="${odhady[i + 1] || ''}" onchange="saveOdhad2026()" />
+    </div>
+  `).join('');
+
   document.getElementById('predGrid').innerHTML = `
     <div class="pred-month-card">
-      <div class="pred-month-label">⚡ Elektřina + FSX 2027 (odhad)</div>
-      <div class="pred-month-value">${fmtCzk((avgEl+avgFsx) * 12 * rust)}</div>
-      <div class="pred-month-sub">Ročně · průměr ${fmtCzk((avgEl+avgFsx) * rust)}/měsíc</div>
-      ${skutEl > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:0.72rem;color:var(--muted)">${skutLabel}: <strong style="color:var(--text)">${fmtCzk(skutEl)}</strong></div>` : ''}
+      <div class="pred-month-label">Skutečnost 2026</div>
+      <div class="pred-month-value">${fmtCzk(realTotal)}</div>
+      <div class="pred-month-sub">${realCount}/12 měsíců vyplněno z Google Sheets</div>
     </div>
     <div class="pred-month-card">
-      <div class="pred-month-label">🔥 Plyn 2027 (odhad)</div>
-      <div class="pred-month-value">${fmtCzk(avgGas * 12 * rust)}</div>
-      <div class="pred-month-sub">Ročně · průměr ${fmtCzk(avgGas * rust)}/měsíc</div>
-      ${skutGas > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:0.72rem;color:var(--muted)">${skutLabel}: <strong style="color:var(--text)">${fmtCzk(skutGas)}</strong></div>` : ''}
-    </div>
-    <div class="pred-month-card">
-      <div class="pred-month-label">💧 Voda 2027 (odhad)</div>
-      <div class="pred-month-value">${fmtCzk(avgWater * 12 * rust)}</div>
-      <div class="pred-month-sub">Ročně · průměr ${fmtCzk(avgWater * rust)}/měsíc</div>
-      ${skutWater > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:0.72rem;color:var(--muted)">${skutLabel}: <strong style="color:var(--text)">${fmtCzk(skutWater)}</strong></div>` : ''}
+      <div class="pred-month-label">Ruční odhad 2026</div>
+      <div class="pred-month-value">${fmtCzk(odhadTotal)}</div>
+      <div class="pred-month-sub">${odhadCount}/12 měsíců vyplněno ručně</div>
     </div>
     <div class="pred-month-card" style="background:var(--pred-light);border-color:#c4b5fd">
-      <div class="pred-month-label" style="color:var(--pred)">📊 Celkem 2027 (odhad)</div>
-      <div class="pred-month-value" style="color:var(--pred)">${fmtCzk(avgTotal * 12 * rust)}</div>
-      <div class="pred-month-sub">Ročně · předpokládaný nárůst +5%</div>
-      ${skutTotal > 0 ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #c4b5fd;font-size:0.72rem;color:var(--pred)">${skutLabel}: <strong>${fmtCzk(skutTotal)}</strong></div>` : ''}
+      <div class="pred-month-label" style="color:var(--pred)">Rozdíl realita vs. odhad</div>
+      <div class="pred-month-value" style="color:var(--pred)">${realTotal && odhadTotal ? fmtCzk(diff) : '—'}</div>
+      <div class="pred-month-sub">${realTotal && odhadTotal ? (diff > 0 ? 'Realita je nad odhadem' : 'Realita je pod odhadem') : 'Vyplňte odhad a načtěte realitu'}</div>
+    </div>
+    <div class="pred-month-card">
+      <div class="pred-month-label">Měsíční odhady 2026</div>
+      <div class="form-grid" style="margin-top:12px">${inputsHtml}</div>
     </div>
   `;
-  const values2026 = MONTHS.map((m,i) => { const d = data2026.find(x => x.mesic === i+1); return d ? d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem : null; });
-  const valuesPred = MONTHS.map((_, mi) => {
-    const mesicData = zakladData.filter(d => d.mesic === mi + 1);
-    if (mesicData.length === 0) return avgTotal * rust;
-    return mesicData.reduce((s,d) => s + d.el_celkem + d.fsx_celkem + d.gas_celkem + d.water_celkem, 0) / mesicData.length * rust;
-  });
+
   if (charts['chartPredikce']) charts['chartPredikce'].destroy();
   const ctx = document.getElementById('chartPredikce');
   if (ctx) {
     charts['chartPredikce'] = new Chart(ctx, {
       type: 'bar',
       data: { labels: MONTHS, datasets: [
-        { label: 'Skutečnost 2026', data: values2026, backgroundColor: '#2563eb99', borderColor: '#2563eb', borderWidth: 2, borderRadius: 4 },
-        { label: 'Predikce 2027', data: valuesPred, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4 }
+        { label: 'Skutečnost 2026', data: valuesReal, backgroundColor: '#2563eb99', borderColor: '#2563eb', borderWidth: 2, borderRadius: 4 },
+        { label: 'Odhad 2026', data: valuesOdhad, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4 }
       ]},
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { labels: { font: { family: 'Epilogue', size: 11 } } } },
