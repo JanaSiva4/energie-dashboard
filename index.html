@@ -158,6 +158,7 @@ input:focus { border-color: var(--el); }
       <button class="tab" onclick="showTab('charts')">Grafy</button>
       <button class="tab" onclick="showTab('history')">Historie</button>
       <button class="tab" onclick="showTab('prediction')">📈 Predikce</button>
+      <button class="tab" onclick="showTab('estimates')">Odhady</button>
       <button class="tab" onclick="showTab('entry')">Zadání dat</button>
     </div>
 
@@ -242,6 +243,19 @@ input:focus { border-color: var(--el); }
       </div>
     </div>
 
+    <!-- ODHADY -->
+    <div id="tab-estimates" style="display:none">
+      <div class="table-card">
+        <div class="table-header">
+          <div>
+            <div class="table-title">Odhady</div>
+            <div class="chart-sub">Načítá se z listu Google Sheets „Odhady“.</div>
+          </div>
+        </div>
+        <div id="odhadContainer"><div class="empty-state"><div>Načítám odhady…</div></div></div>
+      </div>
+    </div>
+
     <!-- PREDIKCE -->
     <div id="tab-prediction" style="display:none">
       <div id="cenovyAlert" style="display:none;background:#fef2f2;border:1px solid #fca5a5;border-radius:12px;padding:16px 20px;margin-bottom:20px;align-items:center;gap:12px">
@@ -307,14 +321,14 @@ input:focus { border-color: var(--el); }
         </div>
       </div>
       <div class="pred-section">
-        <div class="pred-title">📅 Odhad roku 2026</div>
-        <div class="pred-sub">Sem zadejte vlastní měsíční odhady nákladů pro rok 2026. Graf pak ukáže realitu vs. odhad.</div>
+        <div class="pred-title">📅 Predikce a odhady</div>
+        <div class="pred-sub">Odhady se načítají z listu Google Sheets „Odhady“.</div>
         <div class="pred-grid" id="predGrid">
           <div class="empty-state" style="padding:20px"><div>Načítám historická data…</div></div>
         </div>
         <div class="chart-card" style="margin-top:20px">
           <div class="chart-title">Náklady 2026: realita vs. odhad</div>
-          <div class="chart-sub">Elektřina a plyn samostatně: skutečnost vs. ruční odhad</div>
+          <div class="chart-sub">Elektřina a plyn samostatně: skutečnost 2026 vs. odhady 2026/2027</div>
           <div class="chart-wrap-tall"><canvas id="chartPredikce"></canvas></div>
         </div>
       </div>
@@ -383,7 +397,7 @@ input:focus { border-color: var(--el); }
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzGV-vnAWMloGczThHXmch7JmgYDNe2WpPzeDeVvGPgcyeRpCEzi4dQfq7IsZWNLt7wg/exec';
 const MONTHS = ['Led','Úno','Bře','Dub','Kvě','Čer','Čvc','Srp','Zář','Říj','Lis','Pro'];
 const ALERT_HRANICE = 3500;
-let allData = [], odhadData = {}, charts = {}, currentWarehouse = '', otePrice = null;
+let allData = [], odhadData = { 2026: { el: {}, gas: {} }, 2027: { el: {}, gas: {} } }, charts = {}, currentWarehouse = '', otePrice = null;
 
 async function nactiPoznamky() {
   try {
@@ -514,62 +528,64 @@ function vypocitej() {
     `${fmt(sjl)} SJL × ${SJL_KOEFICIENT} kWh/SJL = ${fmt(odhadKwh)} kWh · Silová: ${fmtCzk(silova)} · Distribuce: ${fmtCzk(distribuce)} · Celkem: ${fmtCzk(celkem)}`;
 }
 
-function getOdhad2026Key() {
-  return 'odhad2026:v2:' + (currentWarehouse || 'default');
+function emptyOdhady() {
+  return { 2026: { el: {}, gas: {} }, 2027: { el: {}, gas: {} } };
 }
 
-function loadOdhad2026() {
-  let local = {};
-  try { local = JSON.parse(localStorage.getItem(getOdhad2026Key()) || '{}'); }
-  catch(e) { local = {}; }
-  return {
-    el: { ...(odhadData.el || {}), ...(local.el || {}) },
-    gas: { ...(odhadData.gas || {}), ...(local.gas || {}) }
-  };
-}
-
-function collectOdhad2026Inputs() {
-  const odhady = { el: {}, gas: {} };
-  MONTHS.forEach((_, i) => {
-    const month = i + 1;
-    const elInput = document.getElementById('odhad2026_el_' + month);
-    const gasInput = document.getElementById('odhad2026_gas_' + month);
-    const elVal = elInput ? parseFloat(elInput.value) : 0;
-    const gasVal = gasInput ? parseFloat(gasInput.value) : 0;
-    if (elVal > 0) odhady.el[month] = elVal;
-    if (gasVal > 0) odhady.gas[month] = gasVal;
-  });
-  return odhady;
-}
-
-function saveOdhad2026() {
-  const odhady = collectOdhad2026Inputs();
-  localStorage.setItem(getOdhad2026Key(), JSON.stringify(odhady));
-  renderPredikce();
-}
-
-async function ulozOdhady2026DoSheets() {
-  const odhady = collectOdhad2026Inputs();
-  const months = MONTHS.map((_, i) => i + 1).filter(m => odhady.el[m] || odhady.gas[m]);
-  if (!months.length) { showToast('Nejdřív vyplňte alespoň jeden odhad.', true); return; }
-  showLoading('Ukládám odhady 2026 do Google Sheets…');
+async function loadOdhadyData() {
+  odhadData = emptyOdhady();
   try {
-    for (const mesic of months) {
-      const row = [2026, +mesic, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, odhady.el[mesic] || 0, odhady.gas[mesic] || 0];
-      await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'append', sheet: currentWarehouse, row }) });
+    const res = await fetch(SCRIPT_URL + '?sheet=Odhady');
+    const d = await res.json();
+    const rows = d.values || [];
+    for (let i = 0; i < 12; i++) {
+      const row = rows[i + 2] || [];
+      const month = i + 1;
+      const el2026 = +row[1] || 0;
+      const gas2026 = +row[2] || 0;
+      const el2027 = +row[4] || 0;
+      const gas2027 = +row[5] || 0;
+      if (el2026 > 0) odhadData[2026].el[month] = el2026;
+      if (gas2026 > 0) odhadData[2026].gas[month] = gas2026;
+      if (el2027 > 0) odhadData[2027].el[month] = el2027;
+      if (gas2027 > 0) odhadData[2027].gas[month] = gas2027;
     }
-    odhadData = {
-      el: { ...(odhadData.el || {}), ...odhady.el },
-      gas: { ...(odhadData.gas || {}), ...odhady.gas }
-    };
-    localStorage.removeItem(getOdhad2026Key());
-    hideLoading();
-    showToast('✓ Odhady 2026 uloženy do Google Sheets!');
-    setTimeout(() => loadData(), 2000);
   } catch(e) {
-    hideLoading();
-    showToast('Chyba uložení odhadů: ' + e.message, true);
+    console.log('Odhady se nepodařilo načíst:', e.message);
   }
+}
+
+function odhadValues(year, type) {
+  return MONTHS.map((_, i) => odhadData[year]?.[type]?.[i + 1] || null);
+}
+
+function sumValues(values) {
+  return values.reduce((s, v) => s + (v || 0), 0);
+}
+
+function countValues(values) {
+  return values.filter(v => v !== null).length;
+}
+
+function renderOdhady() {
+  const container = document.getElementById('odhadContainer');
+  if (!container) return;
+  const rows = MONTHS.map((month, i) => {
+    const m = i + 1;
+    return `
+      <tr>
+        <td>${month}</td>
+        <td>${fmtCzk(odhadData[2026].el[m] || 0)}</td>
+        <td>${fmtCzk(odhadData[2026].gas[m] || 0)}</td>
+        <td>${fmtCzk(odhadData[2027].el[m] || 0)}</td>
+        <td>${fmtCzk(odhadData[2027].gas[m] || 0)}</td>
+      </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <table>
+      <thead><tr><th>Měsíc</th><th>2026 Elektřina</th><th>2026 Plyn</th><th>2027 Elektřina</th><th>2027 Plyn</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
 }
 
 function renderPredikce() {
@@ -582,7 +598,6 @@ function renderPredikce() {
   }
 
   const data2026 = allData.filter(d => d.rok === 2026);
-  const odhady = loadOdhad2026();
   const valuesRealEl = MONTHS.map((_, i) => {
     const d = data2026.find(x => x.mesic === i + 1);
     return d ? d.el_celkem + d.fsx_celkem : null;
@@ -591,63 +606,48 @@ function renderPredikce() {
     const d = data2026.find(x => x.mesic === i + 1);
     return d ? d.gas_celkem : null;
   });
-  const valuesOdhadEl = MONTHS.map((_, i) => odhady.el[i + 1] ? odhady.el[i + 1] : null);
-  const valuesOdhadGas = MONTHS.map((_, i) => odhady.gas[i + 1] ? odhady.gas[i + 1] : null);
-  const realElTotal = valuesRealEl.reduce((s, v) => s + (v || 0), 0);
-  const realGasTotal = valuesRealGas.reduce((s, v) => s + (v || 0), 0);
-  const odhadElTotal = valuesOdhadEl.reduce((s, v) => s + (v || 0), 0);
-  const odhadGasTotal = valuesOdhadGas.reduce((s, v) => s + (v || 0), 0);
-  const realCount = valuesRealEl.filter(v => v !== null).length;
-  const odhadElCount = valuesOdhadEl.filter(v => v !== null).length;
-  const odhadGasCount = valuesOdhadGas.filter(v => v !== null).length;
-  const realTotal = realElTotal + realGasTotal;
-  const odhadTotal = odhadElTotal + odhadGasTotal;
-  const diff = realTotal && odhadTotal ? realTotal - odhadTotal : 0;
+  const valuesOdhadEl2026 = odhadValues(2026, 'el');
+  const valuesOdhadGas2026 = odhadValues(2026, 'gas');
+  const valuesOdhadEl2027 = odhadValues(2027, 'el');
+  const valuesOdhadGas2027 = odhadValues(2027, 'gas');
 
-  const inputsHtml = MONTHS.map((month, i) => {
-    const idx = i + 1;
-    return `
-      <div class="field">
-        <label>${month} elektřina</label>
-        <input type="number" id="odhad2026_el_${idx}" placeholder="0 Kč" step="1" value="${odhady.el[idx] || ''}" onchange="saveOdhad2026()" />
-      </div>
-      <div class="field">
-        <label>${month} plyn</label>
-        <input type="number" id="odhad2026_gas_${idx}" placeholder="0 Kč" step="1" value="${odhady.gas[idx] || ''}" onchange="saveOdhad2026()" />
-      </div>
-    `;
-  }).join('');
+  const realElTotal = sumValues(valuesRealEl);
+  const realGasTotal = sumValues(valuesRealGas);
+  const odhadEl2026Total = sumValues(valuesOdhadEl2026);
+  const odhadGas2026Total = sumValues(valuesOdhadGas2026);
+  const odhadEl2027Total = sumValues(valuesOdhadEl2027);
+  const odhadGas2027Total = sumValues(valuesOdhadGas2027);
 
   document.getElementById('predGrid').innerHTML = `
     <div class="pred-month-card">
       <div class="pred-month-label">Skutečnost 2026 elektřina</div>
       <div class="pred-month-value">${fmtCzk(realElTotal)}</div>
-      <div class="pred-month-sub">${realCount}/12 měsíců z Google Sheets</div>
+      <div class="pred-month-sub">${countValues(valuesRealEl)}/12 měsíců z hlavního listu</div>
     </div>
     <div class="pred-month-card">
       <div class="pred-month-label">Odhad 2026 elektřina</div>
-      <div class="pred-month-value">${fmtCzk(odhadElTotal)}</div>
-      <div class="pred-month-sub">${odhadElCount}/12 měsíců vyplněno</div>
+      <div class="pred-month-value">${fmtCzk(odhadEl2026Total)}</div>
+      <div class="pred-month-sub">${countValues(valuesOdhadEl2026)}/12 měsíců z listu Odhady</div>
     </div>
     <div class="pred-month-card">
       <div class="pred-month-label">Skutečnost 2026 plyn</div>
       <div class="pred-month-value">${fmtCzk(realGasTotal)}</div>
-      <div class="pred-month-sub">${realCount}/12 měsíců z Google Sheets</div>
+      <div class="pred-month-sub">${countValues(valuesRealGas)}/12 měsíců z hlavního listu</div>
     </div>
     <div class="pred-month-card">
       <div class="pred-month-label">Odhad 2026 plyn</div>
-      <div class="pred-month-value">${fmtCzk(odhadGasTotal)}</div>
-      <div class="pred-month-sub">${odhadGasCount}/12 měsíců vyplněno</div>
+      <div class="pred-month-value">${fmtCzk(odhadGas2026Total)}</div>
+      <div class="pred-month-sub">${countValues(valuesOdhadGas2026)}/12 měsíců z listu Odhady</div>
     </div>
     <div class="pred-month-card" style="background:var(--pred-light);border-color:#c4b5fd">
-      <div class="pred-month-label" style="color:var(--pred)">Rozdíl celkem realita vs. odhad</div>
-      <div class="pred-month-value" style="color:var(--pred)">${realTotal && odhadTotal ? fmtCzk(diff) : '—'}</div>
-      <div class="pred-month-sub">${realTotal && odhadTotal ? (diff > 0 ? 'Realita je nad odhadem' : 'Realita je pod odhadem') : 'Vyplňte odhad a načtěte realitu'}</div>
+      <div class="pred-month-label" style="color:var(--pred)">Odhad 2027 elektřina</div>
+      <div class="pred-month-value" style="color:var(--pred)">${fmtCzk(odhadEl2027Total)}</div>
+      <div class="pred-month-sub">${countValues(valuesOdhadEl2027)}/12 měsíců z listu Odhady</div>
     </div>
-    <div class="pred-month-card">
-      <div class="pred-month-label">Měsíční odhady 2026</div>
-      <div class="form-grid" style="margin-top:12px">${inputsHtml}</div>
-      <button class="btn-primary" onclick="ulozOdhady2026DoSheets()" style="margin-top:16px">Uložit odhady do Google Sheets →</button>
+    <div class="pred-month-card" style="background:var(--pred-light);border-color:#c4b5fd">
+      <div class="pred-month-label" style="color:var(--pred)">Odhad 2027 plyn</div>
+      <div class="pred-month-value" style="color:var(--pred)">${fmtCzk(odhadGas2027Total)}</div>
+      <div class="pred-month-sub">${countValues(valuesOdhadGas2027)}/12 měsíců z listu Odhady</div>
     </div>
   `;
 
@@ -658,9 +658,11 @@ function renderPredikce() {
       type: 'bar',
       data: { labels: MONTHS, datasets: [
         { label: 'Elektřina skutečnost 2026', data: valuesRealEl, backgroundColor: '#2563eb99', borderColor: '#2563eb', borderWidth: 2, borderRadius: 4 },
-        { label: 'Elektřina odhad 2026', data: valuesOdhadEl, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4 },
+        { label: 'Elektřina odhad 2026', data: valuesOdhadEl2026, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4 },
+        { label: 'Elektřina odhad 2027', data: valuesOdhadEl2027, backgroundColor: '#0891b299', borderColor: '#0891b2', borderWidth: 2, borderRadius: 4 },
         { label: 'Plyn skutečnost 2026', data: valuesRealGas, backgroundColor: '#d9770699', borderColor: '#d97706', borderWidth: 2, borderRadius: 4 },
-        { label: 'Plyn odhad 2026', data: valuesOdhadGas, backgroundColor: '#05966999', borderColor: '#059669', borderWidth: 2, borderRadius: 4 }
+        { label: 'Plyn odhad 2026', data: valuesOdhadGas2026, backgroundColor: '#05966999', borderColor: '#059669', borderWidth: 2, borderRadius: 4 },
+        { label: 'Plyn odhad 2027', data: valuesOdhadGas2027, backgroundColor: '#dc262699', borderColor: '#dc2626', borderWidth: 2, borderRadius: 4 }
       ]},
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { labels: { font: { family: 'Epilogue', size: 11 } } } },
@@ -677,30 +679,18 @@ async function loadData() {
     const d = await res.json();
     const rows = d.values || [];
     allData = [];
-    odhadData = { el: {}, gas: {} };
     if (rows.length > 1) {
-      rows.slice(1).forEach(row => {
-        const odhadEl2026 = +row[18] || 0;
-        const odhadGas2026 = +row[19] || 0;
-        const item = {
-          rok: +row[0], mesic: +row[1],
-          el_kwh: +row[2]||0, el_avg_price: +row[3]||0, el_silova: +row[4]||0,
-          el_distribuce: +row[5]||0, el_celkem: +row[6]||0,
-          fsx_kwh: +row[7]||0, fsx_avg_price: +row[8]||0, fsx_celkem: +row[9]||0,
-          gas_kwh: +row[10]||0, gas_avg_price: +row[11]||0, gas_celkem: +row[12]||0,
-          water_m3: +row[13]||0, water_avg_price: +row[14]||0, water_celkem: +row[15]||0,
-          sjl: +row[17]||0,
-        };
-        const actualTotal = item.el_celkem + item.fsx_celkem + item.gas_celkem + item.water_celkem;
-        if (item.rok === 2026 && (odhadEl2026 > 0 || odhadGas2026 > 0) && actualTotal === 0) {
-          if (odhadEl2026 > 0) odhadData.el[item.mesic] = odhadEl2026;
-          if (odhadGas2026 > 0) odhadData.gas[item.mesic] = odhadGas2026;
-        } else {
-          allData.push(item);
-        }
-      });
-      allData.sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
+      allData = rows.slice(1).map(row => ({
+        rok: +row[0], mesic: +row[1],
+        el_kwh: +row[2]||0, el_avg_price: +row[3]||0, el_silova: +row[4]||0,
+        el_distribuce: +row[5]||0, el_celkem: +row[6]||0,
+        fsx_kwh: +row[7]||0, fsx_avg_price: +row[8]||0, fsx_celkem: +row[9]||0,
+        gas_kwh: +row[10]||0, gas_avg_price: +row[11]||0, gas_celkem: +row[12]||0,
+        water_m3: +row[13]||0, water_avg_price: +row[14]||0, water_celkem: +row[15]||0,
+        sjl: +row[17]||0,
+      })).sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
     }
+    await loadOdhadyData();
     hideLoading(); renderAll();
   } catch(e) { hideLoading(); showToast('Chyba načítání: ' + e.message, true); }
 }
@@ -710,7 +700,7 @@ async function saveData() {
   const mesic = +document.getElementById('entryMonth').value;
   const row = [rok, mesic, v('el_kwh'), v('el_avg_price'), v('el_silova'), v('el_distribuce'), v('el_celkem'),
     v('fsx_kwh'), v('fsx_avg_price'), v('fsx_celkem'), v('gas_kwh'), v('gas_avg_price'), v('gas_celkem'),
-    v('water_m3'), v('water_avg_price'), v('water_celkem'), 0, v('sjl'), 0, 0];
+    v('water_m3'), v('water_avg_price'), v('water_celkem'), 0, v('sjl')];
   showLoading('Ukládám do Google Sheets…');
   try {
     await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'append', sheet: currentWarehouse, row }) });
@@ -720,7 +710,7 @@ async function saveData() {
 }
 
 function v(id) { return parseFloat(document.getElementById(id).value) || 0; }
-function renderAll() { renderSummaryCards(); renderCharts(); renderTrend(); renderTable(); renderPredikce(); renderAvgPriceTrend(); }
+function renderAll() { renderSummaryCards(); renderCharts(); renderTrend(); renderTable(); renderOdhady(); renderPredikce(); renderAvgPriceTrend(); }
 
 function renderSummaryCards() {
   if (!allData.length) return;
@@ -833,9 +823,10 @@ function fmt(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:1}
 function fmtCzk(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' Kč' : '0 Kč'; }
 
 function showTab(name) {
-  ['overview','charts','history','prediction','entry'].forEach(t => { document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none'; });
-  document.querySelectorAll('.tab').forEach((btn, i) => { btn.classList.toggle('active', ['overview','charts','history','prediction','entry'][i] === name); });
+  ['overview','charts','history','prediction','estimates','entry'].forEach(t => { document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none'; });
+  document.querySelectorAll('.tab').forEach((btn, i) => { btn.classList.toggle('active', ['overview','charts','history','prediction','estimates','entry'][i] === name); });
   if (name === 'prediction') renderPredikce();
+  if (name === 'estimates') renderOdhady();
 }
 
 function showLoading(text) { document.getElementById('loadingText').textContent = text || 'Načítám…'; document.getElementById('loadingOverlay').style.display = 'flex'; }
