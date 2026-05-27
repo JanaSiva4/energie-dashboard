@@ -328,7 +328,7 @@ input:focus { border-color: var(--el); }
         </div>
         <div class="chart-card" style="margin-top:20px">
           <div class="chart-title">Náklady 2026: realita vs. odhad</div>
-          <div class="chart-sub">Elektřina a plyn samostatně: skutečnost 2026 vs. odhady 2026/2027</div>
+          <div class="chart-sub">Elektřina a plyn samostatně: skutečnost aktuálního roku vs. odhad</div>
           <div class="chart-wrap-tall"><canvas id="chartPredikce"></canvas></div>
         </div>
       </div>
@@ -559,6 +559,11 @@ function odhadValues(year, type) {
   return MONTHS.map((_, i) => odhadData[year]?.[type]?.[i + 1] || null);
 }
 
+function getAktualniRok() {
+  if (allData.length) return Math.max(...allData.map(d => d.rok));
+  return new Date().getFullYear();
+}
+
 function sumValues(values) {
   return values.reduce((s, v) => s + (v || 0), 0);
 }
@@ -570,20 +575,19 @@ function countValues(values) {
 function renderOdhady() {
   const container = document.getElementById('odhadContainer');
   if (!container) return;
+  const year = getAktualniRok();
   const rows = MONTHS.map((month, i) => {
     const m = i + 1;
     return `
       <tr>
         <td>${month}</td>
-        <td>${fmtCzk(odhadData[2026].el[m] || 0)}</td>
-        <td>${fmtCzk(odhadData[2026].gas[m] || 0)}</td>
-        <td>${fmtCzk(odhadData[2027].el[m] || 0)}</td>
-        <td>${fmtCzk(odhadData[2027].gas[m] || 0)}</td>
+        <td>${fmtCzk(odhadData[year]?.el?.[m] || 0)}</td>
+        <td>${fmtCzk(odhadData[year]?.gas?.[m] || 0)}</td>
       </tr>`;
   }).join('');
   container.innerHTML = `
     <table>
-      <thead><tr><th>Měsíc</th><th>2026 Elektřina</th><th>2026 Plyn</th><th>2027 Elektřina</th><th>2027 Plyn</th></tr></thead>
+      <thead><tr><th>Měsíc</th><th>${year} Elektřina</th><th>${year} Plyn</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
@@ -597,57 +601,52 @@ function renderPredikce() {
     }
   }
 
-  const data2026 = allData.filter(d => d.rok === 2026);
+  const year = getAktualniRok();
+  const dataYear = allData.filter(d => d.rok === year);
   const valuesRealEl = MONTHS.map((_, i) => {
-    const d = data2026.find(x => x.mesic === i + 1);
+    const d = dataYear.find(x => x.mesic === i + 1);
     return d ? d.el_celkem + d.fsx_celkem : null;
   });
   const valuesRealGas = MONTHS.map((_, i) => {
-    const d = data2026.find(x => x.mesic === i + 1);
+    const d = dataYear.find(x => x.mesic === i + 1);
     return d ? d.gas_celkem : null;
   });
-  const valuesOdhadEl2026 = odhadValues(2026, 'el');
-  const valuesOdhadGas2026 = odhadValues(2026, 'gas');
-  const valuesOdhadEl2027 = odhadValues(2027, 'el');
-  const valuesOdhadGas2027 = odhadValues(2027, 'gas');
+  const valuesOdhadEl = odhadValues(year, 'el');
+  const valuesOdhadGas = odhadValues(year, 'gas');
 
   const realElTotal = sumValues(valuesRealEl);
   const realGasTotal = sumValues(valuesRealGas);
-  const odhadEl2026Total = sumValues(valuesOdhadEl2026);
-  const odhadGas2026Total = sumValues(valuesOdhadGas2026);
-  const odhadEl2027Total = sumValues(valuesOdhadEl2027);
-  const odhadGas2027Total = sumValues(valuesOdhadGas2027);
+  const odhadElTotal = sumValues(valuesOdhadEl);
+  const odhadGasTotal = sumValues(valuesOdhadGas);
+  const realTotal = realElTotal + realGasTotal;
+  const odhadTotal = odhadElTotal + odhadGasTotal;
+  const diff = realTotal && odhadTotal ? realTotal - odhadTotal : 0;
 
   document.getElementById('predGrid').innerHTML = `
     <div class="pred-month-card">
-      <div class="pred-month-label">Skutečnost 2026 elektřina</div>
+      <div class="pred-month-label">Skutečnost ${year} elektřina</div>
       <div class="pred-month-value">${fmtCzk(realElTotal)}</div>
       <div class="pred-month-sub">${countValues(valuesRealEl)}/12 měsíců z hlavního listu</div>
     </div>
     <div class="pred-month-card">
-      <div class="pred-month-label">Odhad 2026 elektřina</div>
-      <div class="pred-month-value">${fmtCzk(odhadEl2026Total)}</div>
-      <div class="pred-month-sub">${countValues(valuesOdhadEl2026)}/12 měsíců z listu Odhady</div>
+      <div class="pred-month-label">Odhad ${year} elektřina</div>
+      <div class="pred-month-value">${fmtCzk(odhadElTotal)}</div>
+      <div class="pred-month-sub">${countValues(valuesOdhadEl)}/12 měsíců z listu Odhady</div>
     </div>
     <div class="pred-month-card">
-      <div class="pred-month-label">Skutečnost 2026 plyn</div>
+      <div class="pred-month-label">Skutečnost ${year} plyn</div>
       <div class="pred-month-value">${fmtCzk(realGasTotal)}</div>
       <div class="pred-month-sub">${countValues(valuesRealGas)}/12 měsíců z hlavního listu</div>
     </div>
     <div class="pred-month-card">
-      <div class="pred-month-label">Odhad 2026 plyn</div>
-      <div class="pred-month-value">${fmtCzk(odhadGas2026Total)}</div>
-      <div class="pred-month-sub">${countValues(valuesOdhadGas2026)}/12 měsíců z listu Odhady</div>
+      <div class="pred-month-label">Odhad ${year} plyn</div>
+      <div class="pred-month-value">${fmtCzk(odhadGasTotal)}</div>
+      <div class="pred-month-sub">${countValues(valuesOdhadGas)}/12 měsíců z listu Odhady</div>
     </div>
     <div class="pred-month-card" style="background:var(--pred-light);border-color:#c4b5fd">
-      <div class="pred-month-label" style="color:var(--pred)">Odhad 2027 elektřina</div>
-      <div class="pred-month-value" style="color:var(--pred)">${fmtCzk(odhadEl2027Total)}</div>
-      <div class="pred-month-sub">${countValues(valuesOdhadEl2027)}/12 měsíců z listu Odhady</div>
-    </div>
-    <div class="pred-month-card" style="background:var(--pred-light);border-color:#c4b5fd">
-      <div class="pred-month-label" style="color:var(--pred)">Odhad 2027 plyn</div>
-      <div class="pred-month-value" style="color:var(--pred)">${fmtCzk(odhadGas2027Total)}</div>
-      <div class="pred-month-sub">${countValues(valuesOdhadGas2027)}/12 měsíců z listu Odhady</div>
+      <div class="pred-month-label" style="color:var(--pred)">Rozdíl celkem realita vs. odhad</div>
+      <div class="pred-month-value" style="color:var(--pred)">${realTotal && odhadTotal ? fmtCzk(diff) : '—'}</div>
+      <div class="pred-month-sub">${realTotal && odhadTotal ? (diff > 0 ? 'Realita je nad odhadem' : 'Realita je pod odhadem') : 'Vyplňte odhad v listu Odhady'}</div>
     </div>
   `;
 
@@ -657,12 +656,10 @@ function renderPredikce() {
     charts['chartPredikce'] = new Chart(ctx, {
       type: 'bar',
       data: { labels: MONTHS, datasets: [
-        { label: 'Elektřina skutečnost 2026', data: valuesRealEl, backgroundColor: '#2563eb99', borderColor: '#2563eb', borderWidth: 2, borderRadius: 4 },
-        { label: 'Elektřina odhad 2026', data: valuesOdhadEl2026, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4 },
-        { label: 'Elektřina odhad 2027', data: valuesOdhadEl2027, backgroundColor: '#0891b299', borderColor: '#0891b2', borderWidth: 2, borderRadius: 4 },
-        { label: 'Plyn skutečnost 2026', data: valuesRealGas, backgroundColor: '#d9770699', borderColor: '#d97706', borderWidth: 2, borderRadius: 4 },
-        { label: 'Plyn odhad 2026', data: valuesOdhadGas2026, backgroundColor: '#05966999', borderColor: '#059669', borderWidth: 2, borderRadius: 4 },
-        { label: 'Plyn odhad 2027', data: valuesOdhadGas2027, backgroundColor: '#dc262699', borderColor: '#dc2626', borderWidth: 2, borderRadius: 4 }
+        { label: 'Elektřina skutečnost ' + year, data: valuesRealEl, backgroundColor: '#2563eb99', borderColor: '#2563eb', borderWidth: 2, borderRadius: 4 },
+        { label: 'Elektřina odhad ' + year, data: valuesOdhadEl, backgroundColor: '#7c3aed99', borderColor: '#7c3aed', borderWidth: 2, borderRadius: 4 },
+        { label: 'Plyn skutečnost ' + year, data: valuesRealGas, backgroundColor: '#d9770699', borderColor: '#d97706', borderWidth: 2, borderRadius: 4 },
+        { label: 'Plyn odhad ' + year, data: valuesOdhadGas, backgroundColor: '#05966999', borderColor: '#059669', borderWidth: 2, borderRadius: 4 }
       ]},
       options: { responsive: true, maintainAspectRatio: false,
         plugins: { legend: { labels: { font: { family: 'Epilogue', size: 11 } } } },
