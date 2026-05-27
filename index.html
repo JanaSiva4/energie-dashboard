@@ -383,7 +383,7 @@ input:focus { border-color: var(--el); }
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzGV-vnAWMloGczThHXmch7JmgYDNe2WpPzeDeVvGPgcyeRpCEzi4dQfq7IsZWNLt7wg/exec';
 const MONTHS = ['Led','Úno','Bře','Dub','Kvě','Čer','Čvc','Srp','Zář','Říj','Lis','Pro'];
 const ALERT_HRANICE = 3500;
-let allData = [], charts = {}, currentWarehouse = '', otePrice = null;
+let allData = [], odhadData = {}, charts = {}, currentWarehouse = '', otePrice = null;
 
 async function nactiPoznamky() {
   try {
@@ -519,19 +519,47 @@ function getOdhad2026Key() {
 }
 
 function loadOdhad2026() {
-  try { return JSON.parse(localStorage.getItem(getOdhad2026Key()) || '{}'); }
-  catch(e) { return {}; }
+  let local = {};
+  try { local = JSON.parse(localStorage.getItem(getOdhad2026Key()) || '{}'); }
+  catch(e) { local = {}; }
+  return { ...odhadData, ...local };
 }
 
-function saveOdhad2026() {
+function collectOdhad2026Inputs() {
   const odhady = {};
   MONTHS.forEach((_, i) => {
     const input = document.getElementById('odhad2026_' + (i + 1));
     const val = input ? parseFloat(input.value) : 0;
     if (val > 0) odhady[i + 1] = val;
   });
+  return odhady;
+}
+
+function saveOdhad2026() {
+  const odhady = collectOdhad2026Inputs();
   localStorage.setItem(getOdhad2026Key(), JSON.stringify(odhady));
   renderPredikce();
+}
+
+async function ulozOdhady2026DoSheets() {
+  const odhady = collectOdhad2026Inputs();
+  const months = Object.keys(odhady);
+  if (!months.length) { showToast('Nejdřív vyplňte alespoň jeden odhad.', true); return; }
+  showLoading('Ukládám odhady 2026 do Google Sheets…');
+  try {
+    for (const mesic of months) {
+      const row = [2026, +mesic, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, odhady[mesic]];
+      await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'append', sheet: currentWarehouse, row }) });
+    }
+    odhadData = { ...odhadData, ...odhady };
+    localStorage.removeItem(getOdhad2026Key());
+    hideLoading();
+    showToast('✓ Odhady 2026 uloženy do Google Sheets!');
+    setTimeout(() => loadData(), 2000);
+  } catch(e) {
+    hideLoading();
+    showToast('Chyba uložení odhadů: ' + e.message, true);
+  }
 }
 
 function renderPredikce() {
@@ -582,6 +610,7 @@ function renderPredikce() {
     <div class="pred-month-card">
       <div class="pred-month-label">Měsíční odhady 2026</div>
       <div class="form-grid" style="margin-top:12px">${inputsHtml}</div>
+      <button class="btn-primary" onclick="ulozOdhady2026DoSheets()" style="margin-top:16px">Uložit odhady do Google Sheets →</button>
     </div>
   `;
 
@@ -608,17 +637,28 @@ async function loadData() {
     const res = await fetch(SCRIPT_URL + '?sheet=' + encodeURIComponent(currentWarehouse));
     const d = await res.json();
     const rows = d.values || [];
-    if (rows.length <= 1) { allData = []; }
-    else {
-      allData = rows.slice(1).map(row => ({
-        rok: +row[0], mesic: +row[1],
-        el_kwh: +row[2]||0, el_avg_price: +row[3]||0, el_silova: +row[4]||0,
-        el_distribuce: +row[5]||0, el_celkem: +row[6]||0,
-        fsx_kwh: +row[7]||0, fsx_avg_price: +row[8]||0, fsx_celkem: +row[9]||0,
-        gas_kwh: +row[10]||0, gas_avg_price: +row[11]||0, gas_celkem: +row[12]||0,
-        water_m3: +row[13]||0, water_avg_price: +row[14]||0, water_celkem: +row[15]||0,
-        sjl: +row[17]||0,
-      })).sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
+    allData = [];
+    odhadData = {};
+    if (rows.length > 1) {
+      rows.slice(1).forEach(row => {
+        const odhad2026 = +row[18] || 0;
+        const item = {
+          rok: +row[0], mesic: +row[1],
+          el_kwh: +row[2]||0, el_avg_price: +row[3]||0, el_silova: +row[4]||0,
+          el_distribuce: +row[5]||0, el_celkem: +row[6]||0,
+          fsx_kwh: +row[7]||0, fsx_avg_price: +row[8]||0, fsx_celkem: +row[9]||0,
+          gas_kwh: +row[10]||0, gas_avg_price: +row[11]||0, gas_celkem: +row[12]||0,
+          water_m3: +row[13]||0, water_avg_price: +row[14]||0, water_celkem: +row[15]||0,
+          sjl: +row[17]||0,
+        };
+        const actualTotal = item.el_celkem + item.fsx_celkem + item.gas_celkem + item.water_celkem;
+        if (item.rok === 2026 && odhad2026 > 0 && actualTotal === 0) {
+          odhadData[item.mesic] = odhad2026;
+        } else {
+          allData.push(item);
+        }
+      });
+      allData.sort((a,b) => a.rok !== b.rok ? a.rok-b.rok : a.mesic-b.mesic);
     }
     hideLoading(); renderAll();
   } catch(e) { hideLoading(); showToast('Chyba načítání: ' + e.message, true); }
@@ -629,7 +669,7 @@ async function saveData() {
   const mesic = +document.getElementById('entryMonth').value;
   const row = [rok, mesic, v('el_kwh'), v('el_avg_price'), v('el_silova'), v('el_distribuce'), v('el_celkem'),
     v('fsx_kwh'), v('fsx_avg_price'), v('fsx_celkem'), v('gas_kwh'), v('gas_avg_price'), v('gas_celkem'),
-    v('water_m3'), v('water_avg_price'), v('water_celkem'), 0, v('sjl')];
+    v('water_m3'), v('water_avg_price'), v('water_celkem'), 0, v('sjl'), 0];
   showLoading('Ukládám do Google Sheets…');
   try {
     await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'append', sheet: currentWarehouse, row }) });
