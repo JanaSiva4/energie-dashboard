@@ -249,7 +249,7 @@ input:focus { border-color: var(--el); }
         <div class="table-header">
           <div>
             <div class="table-title">Odhady</div>
-            <div class="chart-sub">Načítá se z listu Google Sheets „Odhady“.</div>
+            <div class="chart-sub">Načítá se z listu Google Sheets „Odhady“ podle vybraného skladu.</div>
           </div>
         </div>
         <div id="odhadContainer"><div class="empty-state"><div>Načítám odhady…</div></div></div>
@@ -534,12 +534,18 @@ function emptyOdhady() {
 
 async function loadOdhadyData() {
   odhadData = emptyOdhady();
+  if (!['CZLC4', 'LCÚ', 'LCZ', 'SKLC3'].includes(currentWarehouse)) return;
   try {
     const res = await fetch(SCRIPT_URL + '?sheet=Odhady');
     const d = await res.json();
     const rows = d.values || [];
+    const normalizeWarehouse = value => String(value || '').trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const activeWarehouse = normalizeWarehouse(currentWarehouse);
+    const skladRow = rows.findIndex(row => normalizeWarehouse(row[0]) === activeWarehouse);
+    if (skladRow < 0) return;
+    const startRow = skladRow + 2;
     for (let i = 0; i < 12; i++) {
-      const row = rows[i + 2] || [];
+      const row = rows[startRow + i] || [];
       const month = i + 1;
       const el2026 = +row[1] || 0;
       const gas2026 = +row[2] || 0;
