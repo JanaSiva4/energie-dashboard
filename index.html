@@ -157,10 +157,10 @@ input:focus { border-color: var(--el); }
       <button class="tab active" onclick="showTab('overview')">Přehled</button>
       <button class="tab" onclick="showTab('charts')">Grafy</button>
       <button class="tab" onclick="showTab('history')">Historie</button>
-      <button class="tab" onclick="showTab('invoices')">Faktury</button>
       <button class="tab" onclick="showTab('prediction')">📈 Predikce</button>
       <button class="tab" onclick="showTab('estimates')">Odhady</button>
       <button class="tab" onclick="showTab('entry')">Zadání dat</button>
+      <button class="tab" onclick="showTab('invoices')">Faktury</button>
     </div>
 
     <!-- PŘEHLED -->
@@ -997,8 +997,8 @@ function fmt(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:1}
 function fmtCzk(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' Kč' : '0 Kč'; }
 
 function showTab(name) {
-  ['overview','charts','history','invoices','prediction','estimates','entry'].forEach(t => { document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none'; });
-  document.querySelectorAll('.tab').forEach((btn, i) => { btn.classList.toggle('active', ['overview','charts','history','invoices','prediction','estimates','entry'][i] === name); });
+  ['overview','charts','history','prediction','estimates','entry','invoices'].forEach(t => { document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none'; });
+  document.querySelectorAll('.tab').forEach((btn, i) => { btn.classList.toggle('active', ['overview','charts','history','prediction','estimates','entry','invoices'][i] === name); });
   if (name === 'prediction') renderPredikce();
   if (name === 'estimates') renderOdhady();
 }
