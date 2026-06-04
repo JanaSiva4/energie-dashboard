@@ -157,6 +157,7 @@ input:focus { border-color: var(--el); }
       <button class="tab active" onclick="showTab('overview')">Přehled</button>
       <button class="tab" onclick="showTab('charts')">Grafy</button>
       <button class="tab" onclick="showTab('history')">Historie</button>
+      <button class="tab" onclick="showTab('invoices')">Faktury</button>
       <button class="tab" onclick="showTab('prediction')">📈 Predikce</button>
       <button class="tab" onclick="showTab('estimates')">Odhady</button>
       <button class="tab" onclick="showTab('entry')">Zadání dat</button>
@@ -240,6 +241,37 @@ input:focus { border-color: var(--el); }
       <div class="table-card">
         <div class="table-header"><div class="table-title">Historie měsíčních odečtů</div></div>
         <div id="tableContainer"><div class="empty-state"><div class="empty-icon">📊</div><div>Zatím žádná data.</div></div></div>
+      </div>
+    </div>
+
+    <!-- FAKTURY -->
+    <div id="tab-invoices" style="display:none">
+      <div class="form-section">
+        <div class="form-section-title"><div class="section-dot" style="background:var(--el)"></div> Načtení faktur</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Období</label>
+            <input type="month" id="invoicePeriod" />
+          </div>
+          <div class="field">
+            <label>Faktury</label>
+            <input type="file" id="invoiceFiles" multiple accept=".pdf,.docx,.xlsx,.xls" />
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:12px">
+          <button class="btn-primary" onclick="analyzujFaktury()">Analyzovat faktury</button>
+          <span id="invoiceStatus" class="chart-sub">Nahrajte faktury pro vybraný sklad.</span>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <div>
+            <div class="table-title">Kontrola dat z faktur</div>
+            <div class="chart-sub">Hodnoty můžete před uložením upravit.</div>
+          </div>
+        </div>
+        <div id="invoiceReview"><div class="empty-state"><div>Zatím nejsou načtená žádná data.</div></div></div>
       </div>
     </div>
 
@@ -397,7 +429,8 @@ input:focus { border-color: var(--el); }
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzGV-vnAWMloGczThHXmch7JmgYDNe2WpPzeDeVvGPgcyeRpCEzi4dQfq7IsZWNLt7wg/exec';
 const MONTHS = ['Led','Úno','Bře','Dub','Kvě','Čer','Čvc','Srp','Zář','Říj','Lis','Pro'];
 const ALERT_HRANICE = 3500;
-let allData = [], odhadData = { 2026: { el: {}, gas: {} }, 2027: { el: {}, gas: {} } }, charts = {}, currentWarehouse = '', otePrice = null;
+const INVOICE_WEBHOOK_URL = 'https://n8n.dev.gcp.alza.cz/webhook/faktury-upload';
+let allData = [], odhadData = { 2026: { el: {}, gas: {} }, 2027: { el: {}, gas: {} } }, charts = {}, currentWarehouse = '', otePrice = null, invoiceResults = [];
 
 async function nactiPoznamky() {
   try {
@@ -713,6 +746,144 @@ async function saveData() {
 }
 
 function v(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+function parseInvoiceNumber(val) {
+  if (val === null || val === undefined) return 0;
+  let s = String(val).trim();
+  if (!s || s.toLowerCase() === 'n/a') return 0;
+  s = s.replace(/\s|\u00a0/g, '').replace(/[^0-9,.-]/g, '');
+  if (s.includes(',') && s.includes('.')) s = s.replace(/,/g, '');
+  s = s.replace(',', '.');
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function parseInvoicePeriod(raw) {
+  const fallback = document.getElementById('invoicePeriod')?.value || new Date().toISOString().slice(0, 7);
+  const value = String(raw || fallback || '').trim();
+  let rok = new Date().getFullYear();
+  let mesic = new Date().getMonth() + 1;
+  if (/^\d{4}-\d{1,2}$/.test(value)) {
+    const parts = value.split('-');
+    rok = +parts[0]; mesic = +parts[1];
+  } else if (value.includes('.')) {
+    const parts = value.split('.').map(p => parseInt(p, 10)).filter(Boolean);
+    if (parts.length === 2) { mesic = parts[0]; rok = parts[1]; }
+    if (parts.length === 3) { mesic = parts[1]; rok = parts[2]; }
+  }
+  return { rok, mesic };
+}
+
+function invoiceToRow(res) {
+  const p = parseInvoicePeriod(res.obdobi);
+  return [
+    p.rok, p.mesic,
+    parseInvoiceNumber(res.el_spotreba_kwh), 0,
+    parseInvoiceNumber(res.el_cena_sil_el_bez_dph),
+    parseInvoiceNumber(res.el_cena_distribuce_bez_dph),
+    parseInvoiceNumber(res.el_cena_celkem_zaklad_kc),
+    parseInvoiceNumber(res.fsx_spotreba_kwh), 0,
+    parseInvoiceNumber(res.fsx_cena_bez_dph),
+    parseInvoiceNumber(res.plyn_spotreba_kwh), 0,
+    parseInvoiceNumber(res.plyn_cena_celkem_zaklad_kc),
+    parseInvoiceNumber(res.voda_spotreba_m3), 0,
+    parseInvoiceNumber(res.voda_cena_bez_dph),
+    0, 0
+  ];
+}
+
+function invoiceMime(name) {
+  const lower = name.toLowerCase();
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (lower.endsWith('.xlsx')) return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  if (lower.endsWith('.xls')) return 'application/vnd.ms-excel';
+  return 'application/octet-stream';
+}
+
+async function analyzujFaktury() {
+  const input = document.getElementById('invoiceFiles');
+  const files = Array.from(input?.files || []);
+  if (!files.length) { showToast('Nejdřív nahrajte faktury.', true); return; }
+  const status = document.getElementById('invoiceStatus');
+  if (status) status.textContent = 'Analyzuji ' + files.length + ' souborů…';
+  showLoading('Analyzuji faktury…');
+  try {
+    const form = new FormData();
+    files.forEach(file => form.append('data', file, file.name));
+    form.append('p', document.getElementById('invoicePeriod')?.value || new Date().toISOString().slice(0, 7));
+    const response = await fetch(INVOICE_WEBHOOK_URL, { method: 'POST', body: form });
+    if (!response.ok) throw new Error('Webhook vrátil ' + response.status);
+    const data = await response.json();
+    invoiceResults = Array.isArray(data) ? data : [data];
+    hideLoading();
+    if (status) status.textContent = 'Načteno ' + invoiceResults.length + ' výsledků. Zkontrolujte hodnoty.';
+    renderInvoiceReview();
+  } catch(e) {
+    hideLoading();
+    if (status) status.textContent = 'Analýza se nepovedla.';
+    showToast('Chyba analýzy faktur: ' + e.message, true);
+  }
+}
+
+function renderInvoiceReview() {
+  const container = document.getElementById('invoiceReview');
+  if (!container) return;
+  if (!invoiceResults.length) {
+    container.innerHTML = '<div class="empty-state"><div>Zatím nejsou načtená žádná data.</div></div>';
+    return;
+  }
+  const res = invoiceResults[0] || {};
+  const fields = [
+    ['obdobi', 'Období'],
+    ['el_spotreba_kwh', 'Elektřina spotřeba kWh'],
+    ['el_cena_sil_el_bez_dph', 'Elektřina silová Kč'],
+    ['el_cena_distribuce_bez_dph', 'Elektřina distribuce Kč'],
+    ['el_cena_celkem_zaklad_kc', 'Elektřina celkem Kč'],
+    ['fsx_spotreba_kwh', 'FSX spotřeba kWh'],
+    ['fsx_cena_bez_dph', 'FSX celkem Kč'],
+    ['plyn_spotreba_kwh', 'Plyn spotřeba kWh'],
+    ['plyn_cena_celkem_zaklad_kc', 'Plyn celkem Kč'],
+    ['voda_spotreba_m3', 'Voda spotřeba m3'],
+    ['voda_cena_bez_dph', 'Voda celkem Kč']
+  ];
+  const rows = fields.map(([key, label]) => `
+    <tr>
+      <td>${label}</td>
+      <td><input id="inv_${key}" value="${String(res[key] ?? '').replace(/"/g, '&quot;')}" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);font-family:'Epilogue',sans-serif" /></td>
+    </tr>`).join('');
+  container.innerHTML = `
+    <table><thead><tr><th>Pole</th><th>Hodnota</th></tr></thead><tbody>${rows}</tbody></table>
+    <div style="display:flex;justify-content:flex-end;margin:16px 20px 20px">
+      <button class="btn-primary" onclick="ulozFakturuDoHistorie()">Schválit a uložit do historie →</button>
+    </div>`;
+}
+
+function collectInvoiceReview() {
+  const keys = ['obdobi','el_spotreba_kwh','el_cena_sil_el_bez_dph','el_cena_distribuce_bez_dph','el_cena_celkem_zaklad_kc','fsx_spotreba_kwh','fsx_cena_bez_dph','plyn_spotreba_kwh','plyn_cena_celkem_zaklad_kc','voda_spotreba_m3','voda_cena_bez_dph'];
+  const res = {};
+  keys.forEach(key => { res[key] = document.getElementById('inv_' + key)?.value || ''; });
+  return res;
+}
+
+async function ulozFakturuDoHistorie() {
+  if (!invoiceResults.length) { showToast('Nejdřív analyzujte faktury.', true); return; }
+  const reviewed = collectInvoiceReview();
+  const row = invoiceToRow(reviewed);
+  showLoading('Ukládám fakturu do historie…');
+  try {
+    await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'append', sheet: currentWarehouse, row }) });
+    hideLoading();
+    showToast('✓ Faktura uložena do historie!');
+    invoiceResults = [];
+    renderInvoiceReview();
+    setTimeout(() => loadData(), 2000);
+    showTab('overview');
+  } catch(e) {
+    hideLoading();
+    showToast('Chyba uložení faktury: ' + e.message, true);
+  }
+}
 function renderAll() { renderSummaryCards(); renderCharts(); renderTrend(); renderTable(); renderOdhady(); renderPredikce(); renderAvgPriceTrend(); }
 
 function renderSummaryCards() {
@@ -826,8 +997,8 @@ function fmt(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:1}
 function fmtCzk(n) { return n ? n.toLocaleString('cs-CZ', {maximumFractionDigits:0}) + ' Kč' : '0 Kč'; }
 
 function showTab(name) {
-  ['overview','charts','history','prediction','estimates','entry'].forEach(t => { document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none'; });
-  document.querySelectorAll('.tab').forEach((btn, i) => { btn.classList.toggle('active', ['overview','charts','history','prediction','estimates','entry'][i] === name); });
+  ['overview','charts','history','invoices','prediction','estimates','entry'].forEach(t => { document.getElementById('tab-'+t).style.display = t === name ? 'block' : 'none'; });
+  document.querySelectorAll('.tab').forEach((btn, i) => { btn.classList.toggle('active', ['overview','charts','history','invoices','prediction','estimates','entry'][i] === name); });
   if (name === 'prediction') renderPredikce();
   if (name === 'estimates') renderOdhady();
 }
