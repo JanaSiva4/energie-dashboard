@@ -299,9 +299,9 @@ input:focus { border-color: var(--el); }
       </div>
       <div class="pred-section">
         <div class="pred-title">⚡ Ruční cena elektřiny</div>
-        <div class="pred-sub">Automatická spotová cena je dočasně vypnutá. Zadejte spot a přirážky ručně, dashboard z nich spočítá realističtější nákupní cenu.</div>
+        <div class="pred-sub">Automatická spotová cena je dočasně vypnutá. Spotová cena se načte automaticky z API. Ručně doplňte jen marži, distribuci/regulované poplatky a daň.</div>
         <div class="form-grid" style="margin-bottom:12px">
-          <div class="field"><label>Spot / silová cena [Kč/MWh]</label><input type="number" id="oteManual" placeholder="např. 2749" step="0.01" oninput="nastavCenuRucne()" /></div>
+          <div class="field"><label>Spot / silová cena [Kč/MWh]</label><input type="number" id="oteManual" placeholder="načítám z API" step="0.01" oninput="nastavCenuRucne()" /></div>
           <div class="field"><label>Marže dodavatele [Kč/MWh]</label><input type="number" id="oteMargin" placeholder="např. 150" step="0.01" oninput="nastavCenuRucne()" /></div>
           <div class="field"><label>Distribuce a regulované poplatky [Kč/MWh]</label><input type="number" id="oteDistribution" placeholder="např. 1800" step="0.01" oninput="nastavCenuRucne()" /></div>
           <div class="field"><label>Daň / ostatní poplatky [Kč/MWh]</label><input type="number" id="oteTax" placeholder="např. 28.30" step="0.01" oninput="nastavCenuRucne()" /></div>
@@ -485,22 +485,37 @@ async function loadOtePrice() {
   otePrice = null;
   const dot = document.getElementById('oteDot');
   const status = document.getElementById('oteStatus');
-  if (dot) dot.classList.remove('loading');
-  if (status) status.textContent = 'Čekám na ruční zadání ceny';
-  const saved = localStorage.getItem('manualOtePrice');
-  const savedMargin = localStorage.getItem('manualOteMargin');
-  const savedDistribution = localStorage.getItem('manualOteDistribution');
-  const savedTax = localStorage.getItem('manualOteTax');
   const input = document.getElementById('oteManual');
   const marginInput = document.getElementById('oteMargin');
   const distributionInput = document.getElementById('oteDistribution');
   const taxInput = document.getElementById('oteTax');
-  if (input && saved) input.value = saved;
+  const saved = localStorage.getItem('manualOtePrice');
+  const savedMargin = localStorage.getItem('manualOteMargin');
+  const savedDistribution = localStorage.getItem('manualOteDistribution');
+  const savedTax = localStorage.getItem('manualOteTax');
   if (marginInput && savedMargin) marginInput.value = savedMargin;
   if (distributionInput && savedDistribution) distributionInput.value = savedDistribution;
   if (taxInput && savedTax) taxInput.value = savedTax;
-  if ((saved && parseFloat(saved) > 0) || savedMargin || savedDistribution || savedTax) {
-    nastavCenuRucne();
+  if (dot) dot.classList.add('loading');
+  if (status) status.textContent = 'Načítám aktuální spotovou cenu';
+
+  try {
+    const res = await fetch('https://spotovaelektrina.cz/api/v1/price/get-actual-price-json', { cache: 'no-store' });
+    if (!res.ok) throw new Error('Spot API neodpovědělo');
+    const data = await res.json();
+    const apiPrice = parseFloat(data.priceCZK);
+    if (!apiPrice || apiPrice <= 0) throw new Error('Spot API vrátilo neplatnou cenu');
+    if (input) input.value = apiPrice;
+    localStorage.setItem('manualOtePrice', String(apiPrice));
+    nastavCenuRucne('Aktuální spot z API');
+  } catch (err) {
+    if (input && saved) input.value = saved;
+    if ((saved && parseFloat(saved) > 0) || savedMargin || savedDistribution || savedTax) {
+      nastavCenuRucne('Poslední uložená cena');
+    } else {
+      if (dot) dot.classList.remove('loading');
+      if (status) status.textContent = 'Spot API se nepodařilo načíst, zadejte cenu ručně';
+    }
   }
 }
 
@@ -521,7 +536,7 @@ function readManualPricePart(id, storageKey) {
   return value;
 }
 
-function nastavCenuRucne() {
+function nastavCenuRucne(zdrojSpotu = null) {
   const spot = readManualPricePart('oteManual', 'manualOtePrice');
   const marze = readManualPricePart('oteMargin', 'manualOteMargin');
   const distribuce = readManualPricePart('oteDistribution', 'manualOteDistribution');
@@ -542,7 +557,8 @@ function nastavCenuRucne() {
     distribuce ? `distribuce/poplatky ${fmt(distribuce)}` : null,
     dan ? `daň/ostatní ${fmt(dan)}` : null
   ].filter(Boolean).join(' + ');
-  zobrazCenu(total, `Realistická cena: ${detail} Kč/MWh`);
+  const prefix = zdrojSpotu ? `${zdrojSpotu}: ` : 'Realistická cena: ';
+  zobrazCenu(total, `${prefix}${detail} Kč/MWh`);
 }
 
 function zkontrolujAlert(cena) {
